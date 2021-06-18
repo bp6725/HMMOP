@@ -1,0 +1,19 @@
+Cell Ontology ID, Cell Ontology Label, Cytokine Ontology Label, Actor, Action Sentiment, NumPapers, Enrichment Score
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IFNG",cell,Positive,8,6.31
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IFNG",cytokine,Unknown,4,7.48
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL2",cytokine,Unknown,3,8.08
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL12",cytokine,Unknown,2,20.49
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL2",cell,Positive,2,2.27
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL12",cytokine,Positive,2,5.85
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL2",cytokine,Positive,2,1.54
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","CD40LG",cytokine,Positive,1,4.84
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL21",cytokine,Positive,1,9.41
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","TNF",cell,Positive,1,2.25
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","CCL20",cytokine,Negative,1,327.15
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IFNG",cytokine,Positive,1,0.53
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","TGFB",cytokine,Negative,1,12.35
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL4",cytokine,Negative,1,13.5
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","CD40LG",cytokine,Unknown,1,16.94
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL10",cytokine,Unknown,1,4.94
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","TGFB",cytokine,Unknown,1,5.42
+CL_0000794,"CD8-positive, alpha-beta cytotoxic T cell","IL7",cytokine,Positive,1,5.31

@@ -1,0 +1,121 @@
+Cell Ontology ID, Cell Ontology Label, Cytokine Ontology Label, Actor, Action Sentiment, NumPapers, Enrichment Score
+CL_0000084,"T cell","IFNG",cell,Positive,23,4.28
+CL_0000625,"CD8-positive, alpha-beta T cell","IFNG",cell,Positive,11,8.88
+CL_0000625,"CD8-positive, alpha-beta T cell","IL2",cell,Positive,6,2.12
+CL_0000623,"natural killer cell","IFNG",cell,Positive,4,7.62
+CL_0000784,"plasmacytoid dendritic cell","IFNA",cell,Positive,4,85.56
+CL_0000235,"macrophage","TNF",cell,Positive,4,4.78
+CL_0000624,"CD4-positive, alpha-beta T cell","IFNG",cell,Positive,4,5.41
+CL_0000738,"leukocyte","IFNA",cell,Positive,3,32.19
+CL_0000542,"lymphocyte","IFNG",cell,Positive,3,3.5
+CL_0000775,"neutrophil","CXCL8",cell,Positive,3,11.04
+CL_0000625,"CD8-positive, alpha-beta T cell","IL12",cytokine,Positive,3,1.51
+CL_0000235,"macrophage","IFNA",cytokine,Positive,3,0.45
+CL_0000792,"CD4-positive, CD25-positive, alpha-beta regulatory T cell","IL10",cell,Positive,3,7.93
+CL_0000625,"CD8-positive, alpha-beta T cell","IFNG",cytokine,Positive,3,0.67
+CL_0000084,"T cell","IL2",cell,Positive,3,5.3
+CL_0000576,"monocyte","IFNG",cell,Positive,2,1.03
+CL_0000235,"macrophage","IFNA",cell,Positive,2,0.55
+CL_0000084,"T cell","IFNG",cytokine,Positive,2,0.38
+CL_0000623,"natural killer cell","IL2",cell,Positive,2,2.88
+CL_0000784,"plasmacytoid dendritic cell","IFN1",cell,Positive,2,159.23
+CL_0000625,"CD8-positive, alpha-beta T cell","TNF",cell,Positive,2,0.58
+CL_0000084,"T cell","TNFSF9",cell,Positive,2,4.47
+CL_0000136,"fat cell","IL6",cell,Positive,2,5.77
+CL_0000084,"T cell","IL10",cell,Positive,2,2.02
+CL_0000236,"B cell","IL4",cell,Positive,2,6.65
+CL_0000066,"epithelial cell","CXCL8",cell,Positive,2,8.73
+CL_0000576,"monocyte","IL6",cell,Positive,2,3.49
+CL_0000623,"natural killer cell","IL15",cytokine,Positive,2,9.48
+CL_0000084,"T cell","TNFSF9",cytokine,Positive,2,2.42
+CL_0000127,"astrocyte","IL1B",cell,Positive,1,8.56
+CL_0000084,"T cell","CD40LG",cell,Positive,1,3.3
+CL_0000910,"cytotoxic T cell","IL4",cytokine,Negative,1,12.44
+CL_0000235,"macrophage","TGFB",cytokine,Negative,1,2.16
+CL_0000236,"B cell","IL2",cytokine,Positive,1,0.85
+CL_0000084,"T cell","IL12",cytokine,Positive,1,1.35
+CL_0000115,"endothelial cell","IL6",cell,Positive,1,3.22
+CL_0000236,"B cell","TNFSF13B",cytokine,Positive,1,20.81
+CL_0000084,"T cell","TNF",cell,Positive,1,0.84
+CL_0000066,"epithelial cell","TGFB",cytokine,Positive,1,1.28
+CL_0000540,"neuron","IFNG",cytokine,Positive,1,0.38
+CL_0000792,"CD4-positive, CD25-positive, alpha-beta regulatory T cell","IL2",cell,Positive,1,3.92
+CL_0000545,"T-helper 1 cell","IL10",cell,Positive,1,2.35
+CL_0000775,"neutrophil","IL17",cytokine,Positive,1,1.89
+CL_0000625,"CD8-positive, alpha-beta T cell","IL10",cell,Positive,1,1.34
+CL_0000546,"T-helper 2 cell","IFNG",cytokine,Positive,1,0.33
+CL_0000235,"macrophage","CSF2",cell,Positive,1,1.5
+CL_0000625,"CD8-positive, alpha-beta T cell","IL4",cell,Positive,1,1.05
+CL_0002368,"respiratory epithelial cell","IL1B",cell,Positive,1,9.61
+CL_0000625,"CD8-positive, alpha-beta T cell","TNFSF9",cytokine,Positive,1,6.16
+CL_0000235,"macrophage","IL12",cell,Positive,1,3.21
+CL_0000890,"alternatively activated macrophage","TNF",cell,Positive,1,3.58
+CL_0000236,"B cell","IFNL3",cytokine,Positive,1,4.79
+CL_0000451,"dendritic cell","IFNG",cytokine,Positive,1,0.38
+CL_0000813,"memory T cell","IL2",cell,Positive,1,0.92
+CL_0000236,"B cell","LTA",cytokine,Negative,1,15.53
+CL_0000084,"T cell","IL2",cytokine,Positive,1,1.58
+CL_0000066,"epithelial cell","IFNG",cell,Positive,1,0.59
+CL_0000576,"monocyte","TNFSF9",cytokine,Positive,1,1.32
+CL_0000624,"CD4-positive, alpha-beta T cell","IL2",cell,Positive,1,3.63
+CL_0002038,"T follicular helper cell","IL2",cytokine,Positive,1,2.25
+CL_0000057,"fibroblast","IFNG",cell,Positive,1,0.55
+CL_0000775,"neutrophil","IL17",cytokine,Negative,1,4.39
+CL_0000899,"T-helper 17 cell","IL17A",cell,Positive,1,54.04
+CL_0000235,"macrophage","IFN1",cell,Positive,1,3.32
+CL_0002368,"respiratory epithelial cell","CXCL10",cell,Positive,1,60.64
+CL_0000235,"macrophage","IL1",cytokine,Positive,1,0.31
+CL_0000236,"B cell","IFNG",cell,Positive,1,0.6
+CL_0000084,"T cell","CSF2",cytokine,Positive,1,0.45
+CL_0000451,"dendritic cell","IFNA",cytokine,Positive,1,1.34
+CL_0000236,"B cell","IL21",cell,Positive,1,2.55
+CL_0000084,"T cell","IL17A",cell,Positive,1,2.47
+CL_0000771,"eosinophil","PPBP",cytokine,Positive,1,0.67
+CL_0000576,"monocyte","IFNG",cytokine,Positive,1,0.68
+CL_0000623,"natural killer cell","IL10",cytokine,Negative,1,2.65
+CL_0000624,"CD4-positive, alpha-beta T cell","CD40LG",cytokine,Positive,1,0.67
+CL_0000792,"CD4-positive, CD25-positive, alpha-beta regulatory T cell","IL6",cytokine,Negative,1,2.7
+CL_0000545,"T-helper 1 cell","IL17",cell,Positive,1,5.12
+CL_0000738,"leukocyte","IFNG",cell,Positive,1,1.04
+CL_0000775,"neutrophil","IL27",cytokine,Negative,1,11.99
+CL_0000307,"tracheal epithelial cell","IL22",cytokine,Negative,1,1940.21
+CL_0000235,"macrophage","CSF2",cytokine,Positive,1,1.39
+CL_0000233,"platelet","IL6",cell,Positive,1,1.41
+CL_0000625,"CD8-positive, alpha-beta T cell","LTA",cytokine,Positive,1,2.73
+CL_0000583,"alveolar macrophage","CSF2",cytokine,Positive,1,7.07
+CL_0000084,"T cell","CCL27",cytokine,Positive,1,3.96
+CL_0000910,"cytotoxic T cell","IL12",cytokine,Positive,1,2.7
+CL_0000235,"macrophage","IL1B",cell,Positive,1,5.62
+CL_0000236,"B cell","IL2",cell,Positive,1,1.93
+CL_0000911,"effector T cell","IL2",cell,Positive,1,3.46
+CL_0000576,"monocyte","IFN1",cell,Positive,1,1.26
+CL_0000236,"B cell","TNF",cell,Positive,1,0.59
+CL_0000084,"T cell","PPBP",cytokine,Positive,1,0.11
+CL_0000066,"epithelial cell","IL17A",cytokine,Positive,1,0.91
+CL_0000763,"myeloid cell","CSF2",cytokine,Positive,1,9.28
+CL_0000540,"neuron","IFNG",cell,Positive,1,0.89
+CL_0000545,"T-helper 1 cell","IFNG",cell,Positive,1,5.01
+CL_0000312,"keratinocyte","TGFB",cytokine,Negative,1,6.83
+CL_0000775,"neutrophil","IL17",cell,Positive,1,1.97
+CL_0000546,"T-helper 2 cell","IFNA",cytokine,Positive,1,0.39
+CL_0000542,"lymphocyte","IL2",cytokine,Positive,1,3.23
+CL_0000784,"plasmacytoid dendritic cell","IFNA",cytokine,Negative,1,7.58
+CL_0000625,"CD8-positive, alpha-beta T cell","IL2",cytokine,Positive,1,0.99
+CL_0000235,"macrophage","IFN1",cytokine,Positive,1,1.69
+CL_0002368,"respiratory epithelial cell","IFNG",cytokine,Positive,1,0.64
+CL_0000625,"CD8-positive, alpha-beta T cell","TNF",cytokine,Positive,1,0.1
+CL_0000235,"macrophage","IL10",cell,Positive,1,2.87
+CL_0000236,"B cell","IFNL3",cytokine,Negative,1,38.17
+CL_0000451,"dendritic cell","IFNG",cell,Positive,1,2.15
+CL_0002436,"mature CD4 single-positive thymocyte","CXCL12",cytokine,Negative,1,1951.05
+CL_0000057,"fibroblast","IFNB1",cell,Positive,1,17.78
+CL_0000775,"neutrophil","IFNG",cell,Positive,1,0.33
+CL_0000792,"CD4-positive, CD25-positive, alpha-beta regulatory T cell","TGFB",cytokine,Positive,1,1.59
+CL_0000899,"T-helper 17 cell","IFNA",cytokine,Positive,1,0.57
+CL_0000738,"leukocyte","IL6",cell,Positive,1,1.75
+CL_0000786,"plasma cell","IL6",cytokine,Positive,1,7.6
+CL_0000625,"CD8-positive, alpha-beta T cell","IL13",cytokine,Positive,1,1.06
+CL_0000235,"macrophage","HGF",cell,Positive,1,0.54
+CL_0000815,"regulatory T cell","IFNL3",cytokine,Negative,1,619.22
+CL_0000625,"CD8-positive, alpha-beta T cell","SPP1",cytokine,Positive,1,0.62
+CL_0000235,"macrophage","IFNG",cell,Positive,1,1.92
