@@ -166,7 +166,7 @@ class Simulator_for_Gibbs():
         all_empty_distrbutions = [NormalDistribution(mu, sigmas[i]) for i, mu in enumerate(mues)]
 
         # add states to bouth hmms
-
+        print("change fo chack")
         if not is_mutual_distrbutions:
             _picked_dists_inds_for_non_mutual_case = np.random.choice(range(len(all_distrbutions)), size=N * d,
                                                                       replace=False)
@@ -175,6 +175,7 @@ class Simulator_for_Gibbs():
         all_pome_states = {}
         all_empty_states = {}
         dist_ind = 0
+
         for time_ind in range(N):
             if is_mutual_distrbutions:
                 _picked_dists_inds_for_mutual_case = np.random.choice(range(len(all_distrbutions)), size=d,
@@ -183,7 +184,6 @@ class Simulator_for_Gibbs():
             for in_time_ind in range(d):
                 if is_mutual_distrbutions:
                     _dist = all_distrbutions[_picked_dists_inds_for_mutual_case[in_time_ind]]
-                    #             _dist = all_distrbutions[np.random.randint(0,5)]
                     _empty_dist = all_empty_distrbutions[_picked_dists_inds_for_mutual_case[in_time_ind]]
                 else:
                     _dist = all_distrbutions[_picked_dists_inds_for_non_mutual_case[dist_ind]]
@@ -213,9 +213,6 @@ class Simulator_for_Gibbs():
                     _trans_val = (np.random.rand() + 0.13) / 1.3
                     model.add_transition(all_pome_states[in_time_ind, time_ind], all_pome_states[out_t, time_ind + 1],
                                          _trans_val)
-                    # self.__update_transitions_summary(all_pome_states[in_time_ind,time_ind].name,
-                    #                                   all_pome_states[out_t, time_ind + 1].name,
-                    #                                   1 / n_of_out_trans)
 
         for in_time_ind in range(d):
             model.add_transition(model.start, all_pome_states[in_time_ind, 0], 1)
