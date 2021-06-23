@@ -40,19 +40,26 @@ class GibbsSampler() :
 
     # region Public
 
-    def sample(self, all_relvent_observations, pome_model_topologic, state_to_distrbution_mapping, sigmas, Ng_iters, w_smapler_n_iter = 500):
-        weighted_obs = self._calc_weighted_obs_for_init(all_relvent_observations, self.N)
-        chi = (weighted_obs.max(axis=0) + weighted_obs.min(axis=0)) / 2
-        kapa = 1 / ((weighted_obs.max(axis=0) - weighted_obs.min(axis=0)) ** 2)
+    def sample(self,is_acyclic, all_relvent_observations, pome_results, sigmas, Ng_iters, w_smapler_n_iter = 500):
+        state_to_distrbution_param_mapping = pome_results["state_to_distrbution_param_mapping"]
+        state_to_distrbution_mapping = pome_results["state_to_distrbution_mapping"]
+        start_probs = pome_results["start_probabilites"]
 
+        chi,kapa = self._calc_distributions_prior(all_relvent_observations, self.N)
         curr_mus = self.build_initial_mus(sigmas,chi, kapa)
         curr_trans = self.build_initial_transitions(self.N, self.d)
-        curr_w = [sorted(np.random.choice(range(self.N), len(obs), replace=False)) for obs in all_relvent_observations]
+        if is_acyclic :
+            curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
+        else :
+            curr_w = [sorted(np.random.choice(range(self.N), len(obs), replace=False)) for obs in all_relvent_observations]
 
-        self._update_pome_model_params(pome_model_topologic, curr_mus, curr_trans)
-        curr_walk = self.sample_walk_from_params(all_relvent_observations, pome_model_topologic, curr_w, curr_trans, self.N, self.d)
+        state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
+        curr_walk = self.sample_walk_from_params(all_relvent_observations, state_to_distrbution_param_mapping,start_probs,
+                                                 curr_w, curr_trans, self.N, self.d)
 
-        sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w,state_to_distrbution_mapping, curr_mus,sigmas,self.N,self.d)
+        sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w,
+                                                                         state_to_distrbution_mapping,
+                                                                         curr_mus,sigmas,self.N,self.d)
         sampled_transitions = self._exrect_transitions_from_walk(curr_walk,self.N,self.d,curr_w)
 
         all_sampled_transitions = []
@@ -67,8 +74,9 @@ class GibbsSampler() :
                 curr_mus = self.sample_mus_from_params(sampled_states, observations_sum, chi, kapa, sigmas)
                 curr_trans = self.sample_trans_from_params(sampled_transitions, self.N, self.d)
                 curr_ws = self.sample_ws_from_params(all_relvent_observations, curr_walk,curr_mus,sigmas,self.N, n_iters=w_smapler_n_iter)
-                self._update_pome_model_params(pome_model_topologic,curr_mus,curr_trans)
-                curr_walk = self.sample_walk_from_params(all_relvent_observations, pome_model_topologic, curr_ws, curr_trans, self.N, self.d)
+
+                state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping,curr_mus)
+                curr_walk = self.sample_walk_from_params(all_relvent_observations, state_to_distrbution_param_mapping, curr_ws, curr_trans, self.N, self.d)
 
                 sampled_transitions = self._exrect_transitions_from_walk(curr_walk,self.N,self.d,curr_w)
                 sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w, state_to_distrbution_mapping, curr_mus,sigmas,self.N,self.d)
@@ -111,13 +119,23 @@ class GibbsSampler() :
 
     # region Private
 
-    def _update_pome_model_params(self,pome_model_topologic,curr_mus,curr_trans):
-        for state in pome_model_topologic.states:
+    def _calc_distributions_prior(self,all_relvent_observations,N):
+        weighted_obs = self._calc_weighted_obs_for_init(all_relvent_observations, N)
+        chi = (weighted_obs.max(axis=0) + weighted_obs.min(axis=0)) / 2
+        kapa = 1 / ((weighted_obs.max(axis=0) - weighted_obs.min(axis=0)) ** 2)
+
+        return chi, kapa
+
+    def _update_distributions_params(self, state_to_distrbution_param_mapping, curr_mus):
+        new_state_to_distrbution_param_mapping = {}
+        for state,params in state_to_distrbution_param_mapping.items():
             if ('start' in state.name) or ('end' in state.name): continue
-            _dist = state.distribution
-            _state_name_ind = eval(state.name)
-            _curr_mu = curr_mus[_state_name_ind]
-            _dist.parameters = [_curr_mu, _dist.parameters[1]]
+            _curr_mu = curr_mus[state]
+            new_params = params
+            new_params[0] = _curr_mu
+
+            new_state_to_distrbution_param_mapping[state] = new_params
+        return new_state_to_distrbution_param_mapping
 
     @lru_cache(225)
     def _prob_for_assigment(self,time, obs_ind, N, n_obs):
@@ -413,29 +431,17 @@ class GibbsSampler() :
 
     def sample_ws_from_params(self,sampled_trajs, curr_walk,curr_mus,sigmas,N, n_iters=500):
         result_per_traj = []
-        # with tqdm(total=len(sampled_trajs)) as pbar:
         for traj_ind, traj in enumerate(sampled_trajs):
             y_from_x_probs = self._extract_relevent_probs_from_walk(traj, curr_walk[traj_ind], curr_mus, sigmas)
             msf = self.msf_creator(y_from_x_probs,N)
 
             _simulted_w = self.sample_msf_using_sim(msf,len(traj), n_iters,y_from_x_probs, False)
-            # probs_per_sim_sample = list(map(lambda x: msf(x), all_simulted_w))
-            #
-            # _sum = sum(probs_per_sim_sample)
-            # probs_per_sim_sample = [p/_sum for p in probs_per_sim_sample]
-            #
-            # ind_of_sample = np.random.choice(range(len(probs_per_sim_sample)), p=probs_per_sim_sample)
-
-            # result_per_traj.append(all_simulted_w[ind_of_sample])
-
             result_per_traj.append(_simulted_w)
-            # pbar.update(1)
         return result_per_traj
 
-    def sample_walk_from_params(self, sampled_trajs, pome_model_topologic, curr_ws, curr_trans, N, d):
-        states = self._build_states_map(pome_model_topologic)
-        start_prob = self._build_start_prob(states, N, d)
-
+    def sample_walk_from_params(self, sampled_trajs, state_to_distrbution_param_mapping,
+                                start_prob, curr_ws, curr_trans, N, d):
+        states = list(state_to_distrbution_param_mapping.keys())
         walks = []
         for i, sample in enumerate(sampled_trajs):
             emmisions = self._build_emmisions_for_sample(sample, curr_ws[i], states, d, N)
