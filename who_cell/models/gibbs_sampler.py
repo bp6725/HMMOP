@@ -45,6 +45,8 @@ class GibbsSampler() :
         state_to_distrbution_mapping = pome_results["state_to_distrbution_mapping"]
         start_probs = pome_results["start_probabilites"]
 
+        # TODO : why we dont know is_known_mues in this function ? if we know mues whay we need thw params ?
+        #TODO : send isacyclic - if cyclic think of another way to calculate, if not validate the previous case
         chi,kapa = self._calc_distributions_prior(all_relvent_observations, self.N)
         curr_mus = self.build_initial_mus(sigmas,chi, kapa)
         curr_trans = self.build_initial_transitions(self.N, self.d)
@@ -55,7 +57,7 @@ class GibbsSampler() :
 
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
         curr_walk = self.sample_walk_from_params(all_relvent_observations, state_to_distrbution_param_mapping,start_probs,
-                                                 curr_w, curr_trans, self.N, self.d)
+                                                 curr_w, curr_trans)
 
         sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w,
                                                                          state_to_distrbution_mapping,
@@ -249,7 +251,7 @@ class GibbsSampler() :
 
         return states
 
-    def _build_emmisions_for_sample(self,sample, w, states, d, N,normalized_emm =  True):
+    def _build_emmisions_for_sample(self,sample, w, states,normalized_emm =  True):
         emmisions = {}
         ind_obs = 0
         for time_ind in range(N):
@@ -354,7 +356,7 @@ class GibbsSampler() :
 
         return walk
 
-    def _fwd_bkw(self, states, start_prob, trans_prob, emm_prob, N, d,only_forward = False):
+    def _fwd_bkw(self, states, start_prob, trans_prob, emm_prob,only_forward = False):
         """Forward–backward algorithm."""
         # Forward part of the algorithm
         fwd = []
@@ -440,12 +442,12 @@ class GibbsSampler() :
         return result_per_traj
 
     def sample_walk_from_params(self, sampled_trajs, state_to_distrbution_param_mapping,
-                                start_prob, curr_ws, curr_trans, N, d):
+                                start_prob, curr_ws, curr_trans):
         states = list(state_to_distrbution_param_mapping.keys())
         walks = []
         for i, sample in enumerate(sampled_trajs):
-            emmisions = self._build_emmisions_for_sample(sample, curr_ws[i], states, d, N)
-            posterior = self._fwd_bkw(states.keys(), start_prob, curr_trans, emmisions, N, d)
+            emmisions = self._build_emmisions_for_sample(sample, curr_ws[i], states)
+            posterior = self._fwd_bkw(states.keys(), start_prob, curr_trans, emmisions)
             walks.append(posterior)
 
         return walks

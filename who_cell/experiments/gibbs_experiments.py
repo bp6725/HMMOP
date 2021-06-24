@@ -82,7 +82,7 @@ class GibbsExperiment() :
             _hyper_param_set = {k: v for (k, v) in hyper_param_set}
             combined_params = {**_hyper_param_set,**mutual_model_params_dict}
             all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,all_relvent_sampled_trajs_states = \
-                simulator.simulate_observations(pome_results["original_pome_model"],
+                simulator.simulate_observations(pome_results["model"],
                 combined_params['p_prob_of_observation'],
                 combined_params['number_of_smapled_traj'],from_pre_sampled_traj = True)
 
