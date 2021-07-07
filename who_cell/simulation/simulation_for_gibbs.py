@@ -13,6 +13,7 @@ import networkx as nx
 import holoviews as hv
 from IPython.display import display, HTML,clear_output
 from scipy.stats import binom
+from who_cell.Infras import Infras
 
 from numba import jit
 import numba
@@ -46,8 +47,12 @@ class Simulator_for_Gibbs():
         ws = sorted(np.random.choice(range(len(full_sample)), _n, replace=False))
         return ([full_sample[i] for i in ws],ws)
 
-    def _sample_single_traj_from_pome_model(self,pome_model,return_emissions = True):
-        long_sampled = pome_model.sample(path=True) # sample with inner loops
+    def _sample_single_traj_from_pome_model(self,pome_model,return_emissions = True,traj_length = None):
+        if traj_length is None :
+            long_sampled = pome_model.sample(path=True) # sample with inner loops
+        else :
+            long_sampled = pome_model.sample(length =traj_length
+                                             ,path=True)  # sample with inner loops
         sampled_emissions = long_sampled[0]
         sampled_states = [ss.name for ss in long_sampled[1]]
 
@@ -72,13 +77,13 @@ class Simulator_for_Gibbs():
 
         return _known_mues_to_state,_known_sigmes_to_state
 
-    def _sample_N_traj_from_pome_model(self,pome_model,N):
+    def _sample_N_traj_from_pome_model(self,pome_model,N,traj_length = None):
         _traj = []
         _traj_states = []
 
         i=0
         while i < N :
-            __t,__s = self._sample_single_traj_from_pome_model(pome_model,True)
+            __t,__s = self._sample_single_traj_from_pome_model(pome_model,True,traj_length)
 
             if len(__t) <2 : continue
 
@@ -102,7 +107,12 @@ class Simulator_for_Gibbs():
 
         return all_relvent_observations, all_ws
 
-    def simulate_observations(self,pome_model,p_prob_of_observation,number_of_smapled_traj,from_pre_sampled_traj = False):
+    @Infras.storage_cache
+    def simulate_observations(self,pome_model,mutual_model_params_dict,params_signature,from_pre_sampled_traj = False):
+        p_prob_of_observation = mutual_model_params_dict['p_prob_of_observation']
+        number_of_smapled_traj = mutual_model_params_dict['number_of_smapled_traj']
+        N = mutual_model_params_dict['N']
+
         if from_pre_sampled_traj :
             if self.pre_sampled_traj is not None :
                 all_full_sampled_trajs_max_len = self.pre_sampled_traj
@@ -111,7 +121,7 @@ class Simulator_for_Gibbs():
                 all_full_sampled_trajs_states = all_full_sampled_trajs_states_max_len[:number_of_smapled_traj]
             else :
                 all_full_sampled_trajs_max_len,all_full_sampled_trajs_states_max_len = \
-                    self._sample_N_traj_from_pome_model(pome_model,self.max_number_of_sampled_traj)
+                    self._sample_N_traj_from_pome_model(pome_model,self.max_number_of_sampled_traj,N)
                 self.pre_sampled_traj = all_full_sampled_trajs_max_len
                 self.pre_sampled_traj_states = all_full_sampled_trajs_states_max_len
 
@@ -119,7 +129,7 @@ class Simulator_for_Gibbs():
                 all_full_sampled_trajs_states = all_full_sampled_trajs_states_max_len[:number_of_smapled_traj]
         else :
             all_full_sampled_trajs,all_full_sampled_trajs_states = self._sample_N_traj_from_pome_model(pome_model,
-                                                                                                       number_of_smapled_traj)
+                                                                                                       number_of_smapled_traj,N)
 
         all_relvent_observations,all_ws = Simulator_for_Gibbs.sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs)
         all_relvent_sampled_trajs_states = list(map(lambda x: [x[0][i] for i in x[1]], zip(all_full_sampled_trajs_states, all_ws)))
@@ -169,6 +179,21 @@ class Simulator_for_Gibbs():
 
         return state_to_distrbution_mapping
 
+    def _build_unique_states_to_params(self,N,d,mues,sigmas):
+        '''
+        acyclic case
+        :param N:
+        :param d:
+        :param mues:
+        :param sigmas:
+        :return:
+        '''
+        state_to_distrbution_mapping = {'start':('start')}
+
+        _state_to_distrbution_mapping = {str((mu, sigmas[i])):(mu, sigmas[i]) for i, mu in enumerate(mues)}
+
+        return {**state_to_distrbution_mapping,**_state_to_distrbution_mapping}
+
     def _generete_transition_matrix(self,N,d) :
         transition_matrix_sparse = {}
 
@@ -189,6 +214,27 @@ class Simulator_for_Gibbs():
 
         return transition_matrix_sparse
 
+    def _generete_acyclic_transition_matrix(self,states,d) :
+        possible_states = [state for state in states if state  not in ['start','end']]
+        transition_matrix_sparse = {}
+
+        for state in states :
+            if state == 'end' : continue
+            transition_matrix_sparse[state] = {}
+
+            n_of_out_trans = np.random.randint(2, d )
+            _possible_states = [s for s in possible_states if s != state]
+            out_trans = np.random.choice(_possible_states, size=n_of_out_trans, replace=False)
+
+            for out_t in out_trans:
+                _trans_val = (np.random.rand() + 0.13) / 1.3
+                transition_matrix_sparse[state][out_t] = np.round(_trans_val,3)
+            # transition_matrix_sparse[state]['end'] = np.round(1/len(states),3)
+
+        transition_matrix_sparse['start'] = {state: np.round(1/len(states),3) for state in possible_states}
+
+        return transition_matrix_sparse
+
     def __build_start_prob(self,state_to_distrbution_param_mapping):
         start_probs = {}
 
@@ -204,6 +250,7 @@ class Simulator_for_Gibbs():
             start_probs[state] = weight
         return start_probs
 
+    @Infras.storage_cache
     def build_template_model_parameters(self,N,d,mues,sigmas):
         '''
         this function build the chain params (dists and transitions) in the shape of acyclic chain (state is :(in time ind, time ind)),
@@ -218,6 +265,16 @@ class Simulator_for_Gibbs():
         state_to_distrbution_param_mapping = self._build_temporal_states_to_params(N,d,mues,sigmas)
         transition_matrix_sparse = self._generete_transition_matrix(N,d)
         start_probabilites = self.__build_start_prob(state_to_distrbution_param_mapping)
+
+        return state_to_distrbution_param_mapping,transition_matrix_sparse,start_probabilites
+
+    @Infras.storage_cache
+    def build_acyclic_template_model_parameters(self,N,d,mues,sigmas):
+        state_to_distrbution_param_mapping = self._build_unique_states_to_params(N,d,mues,sigmas)
+
+        states = state_to_distrbution_param_mapping.keys()
+        transition_matrix_sparse = self._generete_acyclic_transition_matrix(states,d)
+        start_probabilites = {state:1/len(states) for state in states}
 
         return state_to_distrbution_param_mapping,transition_matrix_sparse,start_probabilites
 
@@ -252,13 +309,11 @@ class Simulator_for_Gibbs():
 
         return _cyclic_neighbors_map_temporal_names, state_to_distrbution_mapping
 
-
     def _build_pome_model_from_params(self,state_to_distrbution_param_mapping,
                                       transition_matrix_sparse):
         # we need this because we need to share the dist instances for pomegranate
         all_params_to_distrbutions = {(_params[0], _params[1]):NormalDistribution(_params[0], _params[1]) for k,_params in
                             state_to_distrbution_param_mapping.items() if ((k != 'start') and (k != 'end'))}
-
 
         all_model_pome_states = {}
         model = HiddenMarkovModel()
@@ -285,6 +340,20 @@ class Simulator_for_Gibbs():
 
         return model,all_model_pome_states
 
+    def __remove_transitions_to_end(self,transition_matrix_sparse) :
+        new_transition_matrix_sparse = {state:{} for state in transition_matrix_sparse.keys()}
+        for _from,tos in transition_matrix_sparse.items() :
+            for _to,weight in tos.items():
+                if _to == 'end' : continue
+                new_transition_matrix_sparse[_from][_to] = weight
+        return new_transition_matrix_sparse
+
+    def __extrect_end_states(self,transition_matrix_sparse) :
+        from_states = set([state for state in transition_matrix_sparse.keys() if ((len(state) != 0) and (state != 'start')) ])
+        to_states = set(itertools.chain(*[[state for state in states] for states in transition_matrix_sparse.values()]))
+
+        return list(to_states.difference(from_states))
+
     def build_pome_model(self,N, d, mues, sigmas,is_acyclic = True):
         '''
 
@@ -296,12 +365,24 @@ class Simulator_for_Gibbs():
         :return:
         '''
 
-        state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites = \
-            self.build_template_model_parameters(N,d,mues,sigmas)
+        if not is_acyclic:
+            (state_to_distrbution_param_mapping, transition_matrix_sparse,\
+            start_probabilites), params_signature = \
+                self.build_template_model_parameters(N,d,mues,sigmas)
+        else :
+            (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
+                params_signature = \
+                self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
 
-        if is_acyclic :
-            transition_matrix_sparse, state_to_distrbution_param_mapping = self._merge_to_cyclic_chain(state_to_distrbution_param_mapping,
-                                                                   transition_matrix_sparse)
+            #TODO : this will help us when we will try to build acyclic network with complex dynamic - with some kind of temporal direction
+            #first we start with building the new transitions matrix - only unique states
+            # transition_matrix_sparse, state_to_distrbution_param_mapping = self._merge_to_cyclic_chain(state_to_distrbution_param_mapping,
+            #                                                        transition_matrix_sparse)
+            # #now - the  "end" state is missplaced. so we remove it from the existing transitions
+            # transition_matrix_sparse = self.__remove_transitions_to_end(transition_matrix_sparse)
+            #
+            # # after removing "end" - we calculate end from the new transitions matrix
+            # end_states = self.__extrect_end_states(transition_matrix_sparse)
 
         model, all_model_pome_states = self._build_pome_model_from_params(state_to_distrbution_param_mapping,
                                                                           transition_matrix_sparse)
@@ -312,7 +393,8 @@ class Simulator_for_Gibbs():
             "state_to_distrbution_mapping":state_to_distrbution_mapping,
             "transition_matrix_sparse":transition_matrix_sparse,
             "state_to_distrbution_param_mapping":state_to_distrbution_param_mapping,
-            "start_probabilites":start_probabilites
+            "start_probabilites":start_probabilites,
+            'params_signature':params_signature
         }
 
         return pome_results

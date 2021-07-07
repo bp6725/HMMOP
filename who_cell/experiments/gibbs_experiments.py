@@ -51,11 +51,11 @@ class GibbsExperiment() :
                                                                                        hyper_params_dict,fixed_means)
             all_models_results[model_idx] = results_of_mutual_model
 
+        print('finish solving')
         return all_models_results
 
     @staticmethod
-    def run_multi_params_mutual_model_and_return_results(mutual_model_params_dict, hyper_params_dict,fixed_means = True,
-                                                         is_acyclic = True):
+    def run_multi_params_mutual_model_and_return_results(mutual_model_params_dict, hyper_params_dict,fixed_means = True):
         all_results_of_model = {}
 
         hyper_params_sets = list(itertools.product(*[[(k, vv) for vv in v] for k, v in hyper_params_dict.items()]))
@@ -66,12 +66,14 @@ class GibbsExperiment() :
         else :
             max_number_of_sampled_traj = mutual_model_params_dict['number_of_smapled_traj']
 
+        is_acyclic = mutual_model_params_dict['is_acyclic']
+
         # simulate
         simulator = Simulator_for_Gibbs(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
                                         mutual_model_params_dict['n_states'], easy_mode=True,
                                         max_number_of_sampled_traj =max_number_of_sampled_traj ) # we need max_number_of_sampled_traj to know how much traj to pre sample so the traj will be mutual
 
-        pome_results =simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
+        pome_results = simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
                                        simulator.mues, simulator.sigmas,is_acyclic)
 
         simulator.update_known_mues_and_sigmes_to_state_mapping(pome_results["state_to_distrbution_param_mapping"])
@@ -81,10 +83,10 @@ class GibbsExperiment() :
         for exp_idx,hyper_param_set in enumerate(hyper_params_sets) :
             _hyper_param_set = {k: v for (k, v) in hyper_param_set}
             combined_params = {**_hyper_param_set,**mutual_model_params_dict}
-            all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,all_relvent_sampled_trajs_states = \
-                simulator.simulate_observations(pome_results["model"],
-                combined_params['p_prob_of_observation'],
-                combined_params['number_of_smapled_traj'],from_pre_sampled_traj = True)
+            (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
+            all_relvent_sampled_trajs_states),_ = \
+                simulator.simulate_observations(pome_results["model"],combined_params,
+                                                pome_results['params_signature'],from_pre_sampled_traj = True)
 
             result = GibbsExperiment.solve_return_results_mutual_model(combined_params,is_acyclic,simulator,
                                           pome_results,all_relvent_observations,mues_for_sampler,
@@ -97,8 +99,10 @@ class GibbsExperiment() :
             result["all_relvent_sampled_trajs_states"] = all_relvent_sampled_trajs_states
             result["simulator"] = simulator
             result["sigmas"] = simulator.sigmas
-            result["original_pome_model"] =  pome_results["original_pome_model"]
+            result["original_pome_model"] =  pome_results["model"]
             result["state_to_distrbution_mapping"] =  pome_results["state_to_distrbution_mapping"]
+            result['start_probabilites']= pome_results['start_probabilites']
+            result['is_acyclic'] = is_acyclic
 
             all_results_of_model[exp_idx] = result
         return all_results_of_model
@@ -115,29 +119,38 @@ class GibbsExperiment() :
     @staticmethod
     def solve_return_results_mutual_model(params,is_acyclic,simulator,pome_results,
                                           all_relvent_observations,mues_for_sampler,
-                                          w_smapler_n_iter = 100):
+                                          w_smapler_n_iter = 100,with_analysis = False):
         # solve
         sampler = GibbsSampler(params['N'], params['d'], mues_for_sampler)
         all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
             sampler.sample(is_acyclic,all_relvent_observations, pome_results,
-                           simulator.states_known_sigmas, params['N_itres'], w_smapler_n_iter=w_smapler_n_iter)
+                           simulator.states_known_sigmas,params['N_itres'], w_smapler_n_iter=w_smapler_n_iter)
 
         sampled_transitions_dict = all_sampled_transitions[-1]
         sampled_mues = all_mues[-1]
 
-        # analysis
-        normalized_transitions_comper_df, transitions_comper_df = GibbsExperiment.build_final_transitions_compr(
-            sampled_transitions_dict.observed_transitions_dict,
-            simulator.build_transition_prob_from_known(pome_results["original_pome_model"]))
+        if with_analysis :
+            # analysis
+            normalized_transitions_comper_df, transitions_comper_df = GibbsExperiment.build_final_transitions_compr(
+                sampled_transitions_dict.observed_transitions_dict,
+                simulator.build_transition_prob_from_known(pome_results["model"]))
 
-        normalized_sampled_transitions, sampled_transitions = GibbsExperiment.build_final_transitions_compr(
-            sampled_transitions_dict.observed_transitions_dict,
-            simulator.build_transition_prob_from_known(pome_results["original_pome_model"]), False)
+            normalized_sampled_transitions, sampled_transitions = GibbsExperiment.build_final_transitions_compr(
+                sampled_transitions_dict.observed_transitions_dict,
+                simulator.build_transition_prob_from_known(pome_results["model"]), False)
 
-        _transitions_prob_to_count = sampler.compare_transitions_prob_to_count(
-            transitions_prob=normalized_sampled_transitions,
-            transitions_count=sampled_transitions,
-            n_traj=params['number_of_smapled_traj'], N=params['N'], d=params['d'])
+            _transitions_prob_to_count = sampler.compare_transitions_prob_to_count(
+                transitions_prob=normalized_sampled_transitions,
+                transitions_count=sampled_transitions,
+                n_traj=params['number_of_smapled_traj'], N=params['N'], d=params['d'])
+
+            analysis_results = {
+                "normalized_transitions_comper_df": normalized_transitions_comper_df,
+                "transitions_comper_df": transitions_comper_df,
+                "normalized_sampled_transitions": normalized_sampled_transitions,
+                "_transitions_prob_to_count": _transitions_prob_to_count,
+                "sampled_transitions": sampled_transitions
+            }
 
         results = {"all_relvent_observations": all_relvent_observations,
                    "sampler": sampler,
@@ -148,15 +161,10 @@ class GibbsExperiment() :
                    "all_mues": all_mues,
                    "all_ws": all_ws,
                    "sampled_transitions_dict": sampled_transitions_dict,
-                   "sampled_mues": sampled_mues,
-                   "normalized_transitions_comper_df": normalized_transitions_comper_df,
-                   "transitions_comper_df": transitions_comper_df,
-                   "normalized_sampled_transitions": normalized_sampled_transitions,
-                   "_transitions_prob_to_count": _transitions_prob_to_count,
-                   "sampled_transitions": sampled_transitions
+                   "sampled_mues": sampled_mues
                     }
 
-        return results
+        return {**results,**analysis_results} if with_analysis else results
 
     def simulate_solve_return_results(self, easy_mode=False, w_smapler_n_iter = 100, fixed_means = False):
         exp_params = {

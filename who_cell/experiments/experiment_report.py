@@ -24,44 +24,60 @@ class ExperimentReport() :
             return _to in trans[_from].keys()
         return False
 
-    def _build_pome_model_from_collections(self, _mues, _trans, _params):
+    def __return_first_last_states(self,_trans,N) :
+        firsts = []
+        lasts = []
+        for _from,tos in _trans.items() :
+            for _to,_ in tos.items() :
+                if _from[1]  == 0 :
+                    firsts.append(_from)
+                if _to[1] == 0 :
+                    firsts.append(_to)
+                if _from[1] == N-1:
+                    firsts.append(_from)
+                if _to[1] == N-1:
+                    firsts.append(_to)
+        return firsts,lasts
+
+    def _build_pome_model_from_collections(self, _mues, _trans, _params,is_acyclic):
         if type(_params) is not dict :
             _params = {k: v for k, v in _params}
+
+        states = list(_mues.keys())
         states_track = {}
         _model = HiddenMarkovModel("test")
-        for _d, _t in itertools.product(list(range(_params['d'])),
-                                        list(range(_params['N']))):
-            mu = _mues[_d, _t]
+        for state in states:
+            if state in ['start','end'] : continue
+            mu = _mues[state]
             #TODO: get std from outside
             _dist = NormalDistribution(mu, 1 / 10)
-            _state = State(_dist, name=f"({_d},{_t})")
+            _state = State(_dist, name=f"({state})")
             _model.add_state(_state)
-            states_track[f"({_d},{_t})"] = _state
+            states_track[f"{state}"] = _state
 
         _model.add_state(_model.start)
         _model.add_state(_model.end)
 
-        for _d, _t in itertools.product(list(range(_params['d'])),
-                                        list(range(_params['N']))):
-            for _dd, _tt in itertools.product(list(range(_params['d'])),
-                                              list(range(_params['N']))):
-                if (_tt - _t) != 1:
+        for _from_state in states:
+            for _to_state in states:
+                if ((_from_state in ['start','end']) or (_to_state in ['start','end'])) : continue
+
+                if (not is_acyclic) and ((_to_state[1] - _from_state[1]) != 1) :
                     continue
 
-                if self.__is_transition_exist((_d, _t), (_dd, _tt), _trans):
-                    _from = states_track[f"({_d},{_t})"]
-                    _to = states_track[f"({_dd},{_tt})"]
-                    _weight = _trans[(_d, _t)][(_dd, _tt)]
-                    #             print(f"({_d},{_t})" + '==>' + f"({_dd},{_tt})")
+                if self.__is_transition_exist(_from_state, _to_state, _trans):
+                    _from = states_track[f"{_from_state}"]
+                    _to = states_track[f"{_to_state}"]
+                    _weight = _trans[_from_state][_to_state]
+
                     _model.add_transition(_from, _to, _weight)
 
-        for _d, _t in itertools.product(list(range(_params['d'])),
-                                        list(range(_params['N']))):
 
-            if _t == 0:
-                _model.add_transition(_model.start, states_track[f"({_d},{_t})"], 1)
-            if _t == _params['N'] - 1:
-                _model.add_transition(states_track[f"({_d},{_t})"], _model.end, 1)
+        start_states,end_states = self.__return_first_last_states(_trans,_params['N'])
+        for state in start_states:
+            _model.add_transition(_model.start, states_track[f"{state}"], 1)
+        for state in end_states:
+            _model.add_transition(states_track[f"{state}"], _model.end, 1)
 
         _model.bake(merge=None)
 
@@ -101,7 +117,7 @@ class ExperimentReport() :
             states[(_d, _t)] = _state
         return states
 
-    def _calculate_prob_of_sample(self, model, samples, param):
+    def _calculate_prob_of_sample(self, model, samples, param,start_probabilites):
         if type(param) is not dict :
             _params = {k: v for k, v in param}
         else :
@@ -111,32 +127,39 @@ class ExperimentReport() :
             transition_dict, final_states = self._extrect_states_transitions_dict_from_pome_model(model, states)
 
             _states_dict = {eval(s.name): s for s in states if not (('start' in s.name) or ('end' in s.name))}
-            _states = list(transition_dict.keys()) + final_states
-
+            _states = [eval(s.name) for s in states if not (('start' in s.name) or ('end' in s.name))]
+            state_to_distrbution_param_mapping = {eval(s.name): s.distribution.parameters for s in states
+                                                  if not (('start' in s.name) or ('end' in s.name))}
         else:
             print('hello')
-            transition_dict = model[1]
-            states = build_states_from_mues_matrix(model[0], _params['N'], _params['d'])
+            #transition_dict = model[1]
+            #states = build_states_from_mues_matrix(model[0], _params['N'], _params['d'])
 
         gs = GibbsSampler(_params['N'], _params['d'])
-        start_prob = gs._build_start_prob(transition_dict, _params['N'], _params['d'])
+        start_prob = gs._build_start_prob(_states_dict,start_probabilites)
         results = []
         for sample in samples:
-            emm = gs._build_emmisions_for_sample(sample, list(range(_params['N'])), _states_dict, _params['d'],
-                                                 _params['N'], normalized_emm=False)
-            prior = gs._fwd_bkw(_states, start_prob, transition_dict, emm, _params['N'], _params['d'],
-                                only_forward=True)
+            N = max(_params['N'],len(sample))
+            emm = gs._build_emmisions_for_sample(param['is_acyclic'],sample, list(range(len(sample))),
+                                                 state_to_distrbution_param_mapping,N, normalized_emm=False)
+            prior = gs._fwd_bkw(param['is_acyclic'], _states, start_prob, transition_dict, emm,N,only_forward = True)
+
             res = sum([sum(time_prior.values()) for time_prior in prior])
             results.append(res)
         return results
 
-    def _kl_distances_over_original(self, original_model, sampled_models, params):
-        samples_for_comperison = original_model.sample(1000)
-        _org_prob = self._calculate_prob_of_sample(original_model, samples_for_comperison, params)
+    def _kl_distances_over_original(self, original_model, sampled_models, params,start_probabilites):
+        if params['is_acyclic']:
+            samples_for_comperison = original_model.sample(1000,length=params['N'])
+        else :
+            samples_for_comperison = original_model.sample(1000)
+        _org_prob = self._calculate_prob_of_sample(original_model, samples_for_comperison,
+                                                   params,start_probabilites)
 
         results = []
         for _model_for_compr in sampled_models:
-            _comp_prob = self._calculate_prob_of_sample(_model_for_compr, samples_for_comperison, params)
+            _comp_prob = self._calculate_prob_of_sample(_model_for_compr, samples_for_comperison,
+                                                        params,start_probabilites)
             _org_prob_log = np.log(_org_prob)
             _comp_prob_log = np.log(_comp_prob)
 
@@ -145,17 +168,17 @@ class ExperimentReport() :
             results.append(kl_distnace)
         return results
 
-    def _insertion_error_over_original(self,transitions_all_iters ,original_model,params,return_comp_df = False) :
+    def _insertion_error_over_original(self,transitions_all_iters ,original_model,params,states,return_comp_df = False) :
         comp_dfs = []
         insertion_error_for_iter = []
         for _iter in range(len(transitions_all_iters)):
             sampled_res = transitions_all_iters[_iter]
             real_res = self._extrect_states_transitions_dict_from_pome_model(original_model)[0]
             res = []
-            for (_d, _n) in self.__iterate_over_states_idxs(params):
-                for (_dd, _nn) in self.__iterate_over_states_idxs(params):
-                    _from = (_d, _n)
-                    _to = (_dd, _nn)
+            for _s in states:
+                for __s in states:
+                    _from = _s
+                    _to = __s
 
                     if _from in sampled_res.keys():
                         if _to in sampled_res[_from].keys():
@@ -194,12 +217,12 @@ class ExperimentReport() :
         else :
             return itertools.product(range(params[1][1]), range(params[0][1]))
 
-
-    def _plot_results(self,results_dict,sup_title = '',x_axis = '',y_axis = ''):
+    def _plot_batch(self,results_dict,sup_title,x_axis,y_axis):
         _dim = int(len(results_dict.items()))
         fig, subs = plt.subplots(_dim, 1, figsize=(12, 12))
         fig.suptitle(sup_title)
 
+        subs = subs if _dim > 1 else [subs]
         for (model_name, single_modle_reults), sub in zip(results_dict.items(), itertools.chain(subs)):
             model_results_df = pd.DataFrame(single_modle_reults)
 
@@ -214,7 +237,18 @@ class ExperimentReport() :
 
         plt.show()
 
+    def _plot_results(self,results_dict,sup_title = '',x_axis = '',y_axis = ''):
+        models_list = list(results_dict.keys())
+        batches = np.array_split(models_list, np.ceil(len(models_list) / 3))
+
+        for batch in batches :
+            sub_result_dict = {k:results_dict[k] for k in batch}
+            self._plot_batch(sub_result_dict,sup_title,x_axis,y_axis)
+
+
     def __build_exp_name(self,params):
+        if len(params) == 0 :
+            return 'only'
         if type(params) is tuple :
             return reduce(lambda x, y: str(x)+ '\n' + str(y), params)
         else :
@@ -223,23 +257,25 @@ class ExperimentReport() :
 
     def calculate_measure_over_all_results(self, all_results):
         all_measure_results = {}
-        with tqdm(total=len(all_results.keys())) as pbar:
+        with tqdm(total=sum([len(v) for k,v in all_results.items()])) as pbar:
             for single_model_permuts in all_results.values():
                 single_model_results = {}
                 for unique_permut in single_model_permuts.values() :
                     params = {**unique_permut['mutual_params'], **unique_permut['hyper_params']}
                     original_model = unique_permut['original_pome_model']
-                    sampled_models = [self._build_pome_model_from_collections(mues, trans, params) for
-                                      mues, trans in zip(unique_permut['all_mues'], unique_permut['all_transitions'])]
+                    sampled_models = [self._build_pome_model_from_collections(mues, trans, params,unique_permut['is_acyclic']) for
+                                      # mues, trans in zip(unique_permut['all_mues'][::4], unique_permut['all_transitions'][::4])]
+                                        mues, trans in zip(unique_permut['all_mues'], unique_permut['all_transitions'])]
 
-                    measures_over_iters = self._kl_distances_over_original(original_model, sampled_models, params)
+                    measures_over_iters = self._kl_distances_over_original(original_model, sampled_models,
+                                                                           params,unique_permut['start_probabilites'])
 
                     exp_name = self.__build_exp_name(unique_permut['hyper_params'])
-                    single_model_results[exp_name] = measures_over_iters
+                    single_model_results[str(exp_name)] = measures_over_iters
                     pbar.update(1)
 
                 model_name = self.__build_exp_name(unique_permut['mutual_params'])
-                all_measure_results[model_name] = single_model_results
+                all_measure_results[str(model_name)] = single_model_results
 
         return all_measure_results
 
@@ -252,14 +288,50 @@ class ExperimentReport() :
                 original_model = unique_permut["original_pome_model"]
                 params = {**unique_permut['mutual_params'], **unique_permut['hyper_params']}
 
-                insertion_error_for_iter = self._insertion_error_over_original(transitions_all_iters ,original_model,params)
+                insertion_error_for_iter = self._insertion_error_over_original(transitions_all_iters ,original_model,
+                                                                               params,list(unique_permut['all_states'][-1].keys()))
 
                 exp_name = self.__build_exp_name(unique_permut['hyper_params'])
-                single_model_results[exp_name] = insertion_error_for_iter
+                single_model_results[str(exp_name)] = insertion_error_for_iter
 
             model_name = self.__build_exp_name(unique_permut['mutual_params'])
-            all_measure_results[model_name] = single_model_results
+            all_measure_results[str(model_name)] = single_model_results
         return all_measure_results
+
+    def _plot_transitions_compare(self,first_trans,second_trans,title):
+        if type(first_trans) is not dict :
+            first_trans = self._extrect_states_transitions_dict_from_pome_model(first_trans)[0]
+            first_trans = {str(k): {str(kk): vv for kk, vv in v.items()} for k, v in first_trans.items()}
+        first_trans = {k: v for k, v in first_trans.items() if k != 'start'}
+        if type(second_trans) is not dict :
+            second_trans = self._extrect_states_transitions_dict_from_pome_model(second_trans)[0]
+            second_trans = {str(k): {str(kk): vv for kk, vv in v.items()} for k, v in second_trans.items()}
+        second_trans = {k: v for k, v in second_trans.items() if k != 'start'}
+
+        first_trans_df = pd.DataFrame(first_trans)
+        second_trans_df = pd.DataFrame(second_trans)
+
+        first_trans_df = first_trans_df.sort_index().sort_index(1)
+        second_trans_df = second_trans_df.sort_index().sort_index(1)
+
+        first_trans_df = first_trans_df.fillna(0)
+        second_trans_df = second_trans_df.fillna(0)
+
+        fig,subs = plt.subplots(2,1,figsize=(12, 12))
+        fig.suptitle(title)
+
+        sns.heatmap(first_trans_df,ax=subs[0])
+        sns.heatmap(second_trans_df, ax=subs[1])
+        plt.show()
+
+        print('stop')
+
+    def _plot_transitions_compare_over_all_permuts(self,all_results) :
+        for single_model_permuts in all_results.values():
+            for unique_permut in single_model_permuts.values():
+                self._plot_transitions_compare(unique_permut['original_pome_model'],
+                                           unique_permut['all_transitions'][-1],
+                                               str({**unique_permut['mutual_params'],**unique_permut['hyper_params']}))
 
     def build_report_from_multiparam_exp_results(self,all_results,params_titles = None):
         all_measure_results = self.calculate_measure_over_all_results(all_results)
@@ -267,8 +339,4 @@ class ExperimentReport() :
 
         self._plot_results(all_measure_results, sup_title = 'kl distance')
         self._plot_results(insertion_error_per_permut, sup_title = 'insertion error')
-
-        # self._plot_results(all_measure_results, params_titles['kl_distance']['title'],
-        #                        params_titles['kl_distance']['x'],params_titles['kl_distance']['y'])
-        # self._plot_results(insertion_error_per_permut , params_titles['insertion_error']['title'],
-        #                        params_titles['insertion_error']['x'],params_titles['insertion_error']['y'])
+        self._plot_transitions_compare_over_all_permuts(all_results)
