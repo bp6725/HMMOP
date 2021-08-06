@@ -23,7 +23,7 @@ import snakeviz
 
 
 class Simulator_for_Gibbs():
-    def __init__(self,N,d,n_states,easy_mode=False,max_number_of_sampled_traj = None ):
+    def __init__(self,N,d,n_states,easy_mode=False,max_number_of_sampled_traj = None,sigma = 0.1 ):
         self.N = N
         self.d = d
         self.n_states = n_states
@@ -39,8 +39,10 @@ class Simulator_for_Gibbs():
         else :
             self.mues = np.array(range(1,n_states+1))
 
-        #TODO: replace with std from outside
-        self.sigmas = np.ones_like(self.mues)/10
+        if isinstance(sigma, (int, float)) :
+            self.sigmas = np.ones_like(self.mues)*sigma
+        else :
+            self.sigmas = np.array(sigma)
 
     @staticmethod
     def _sample_n_points_from_traj(full_sample,_n):
@@ -57,9 +59,9 @@ class Simulator_for_Gibbs():
         sampled_states = [ss.name for ss in long_sampled[1]]
 
         if return_emissions :
-            _sampled_emm = [sampled_emissions[i-1] for i in range(1,len(sampled_states)-1) if
+            _sampled_emm = [sampled_emissions[i-1] for i in range(1,len(sampled_states)) if
                         sampled_states[i] != sampled_states[i-1]] # remove consucutive duplications
-            _sampled_states = [sampled_states[i] for i in range(1, len(sampled_states) - 1) if
+            _sampled_states = [sampled_states[i] for i in range(1, len(sampled_states)) if
                         sampled_states[i] != sampled_states[i - 1]]  # remove consucutive duplications
 
             return _sampled_emm, _sampled_states
@@ -274,6 +276,8 @@ class Simulator_for_Gibbs():
 
         states = state_to_distrbution_param_mapping.keys()
         transition_matrix_sparse = self._generete_acyclic_transition_matrix(states,d)
+
+        states = [state for state in states if state not in ['end','start'] ]
         start_probabilites = {state:1/len(states) for state in states}
 
         return state_to_distrbution_param_mapping,transition_matrix_sparse,start_probabilites
@@ -354,6 +358,13 @@ class Simulator_for_Gibbs():
 
         return list(to_states.difference(from_states))
 
+    def _normalize_transition_matrix(self,transition_matrix_sparse) :
+        normalized_transition_matrix_sparse = {}
+        for _from, to in transition_matrix_sparse.items():
+            _sum = sum([v for k, v in to.items()])
+            normalized_transition_matrix_sparse[_from] = {_to: (val / _sum) for _to, val in to.items()}
+        return normalized_transition_matrix_sparse
+
     def build_pome_model(self,N, d, mues, sigmas,is_acyclic = True):
         '''
 
@@ -373,7 +384,6 @@ class Simulator_for_Gibbs():
             (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
                 params_signature = \
                 self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
-
             #TODO : this will help us when we will try to build acyclic network with complex dynamic - with some kind of temporal direction
             #first we start with building the new transitions matrix - only unique states
             # transition_matrix_sparse, state_to_distrbution_param_mapping = self._merge_to_cyclic_chain(state_to_distrbution_param_mapping,
@@ -383,6 +393,8 @@ class Simulator_for_Gibbs():
             #
             # # after removing "end" - we calculate end from the new transitions matrix
             # end_states = self.__extrect_end_states(transition_matrix_sparse)
+
+        transition_matrix_sparse = self._normalize_transition_matrix(transition_matrix_sparse)
 
         model, all_model_pome_states = self._build_pome_model_from_params(state_to_distrbution_param_mapping,
                                                                           transition_matrix_sparse)

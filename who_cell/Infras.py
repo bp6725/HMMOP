@@ -10,7 +10,7 @@ class Infras() :
     def _return_cache_relevent_params(func,*args, **kwargs) :
         func_name = func.__name__
         if func_name == "simulate_observations" :
-            return ['simulate_observations',args[2]]
+            return ['simulate_observations',args[2],f"p_{args[1]['p_prob_of_observation']}"]
         if ('build' in func_name) and ('model_parameters' in func_name) :
             N, d, mues, sigmas = args
             is_acyclic = "acyclic" if ('acyclic' in func_name) else 'not acyclic'
