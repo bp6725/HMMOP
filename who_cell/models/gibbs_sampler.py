@@ -75,7 +75,7 @@ class GibbsSampler() :
                     state_to_distrbution_param_mapping, curr_mus)
 
                 curr_trans = self.sample_trans_from_params(sampled_transitions,states)
-                curr_ws = self.sample_ws_from_params(all_relvent_observations, curr_walk,state_to_distrbution_param_mapping,N, n_iters=w_smapler_n_iter)
+                curr_w = self.sample_ws_from_params(all_relvent_observations, curr_walk,state_to_distrbution_param_mapping,N, n_iters=w_smapler_n_iter)
 
                 curr_walk = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N,
                                                          state_to_distrbution_param_mapping,start_probs,
@@ -91,7 +91,7 @@ class GibbsSampler() :
                 all_states.append(sampled_states)
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
-                all_ws.append(curr_ws)
+                all_ws.append(curr_w)
                 pbar.update(1)
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
@@ -118,9 +118,9 @@ class GibbsSampler() :
         with tqdm(total=Ng_iters) as pbar:
             for i in range(Ng_iters):
                 curr_trans = self.sample_trans_from_params(sampled_transitions, states)
-                curr_ws = self.sample_ws_from_params(all_relvent_observations, curr_walk,emissions_table, N,
+                curr_w = self.sample_ws_from_params(all_relvent_observations, curr_walk,emissions_table, N,
                                                      n_iters=w_smapler_n_iter)
-                _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_ws, curr_walk)]
+                _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
                 curr_walk = self.sample_walk_from_params(True, all_relvent_observations, N,
                                                          emissions_table, start_probs,
@@ -131,7 +131,7 @@ class GibbsSampler() :
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
                 all_states_picked_by_w.append(_states_picked_by_w)
-                all_ws.append(curr_ws)
+                all_ws.append(curr_w)
                 pbar.update(1)
         return  all_sampled_transitions, all_ws, all_transitions,all_states_picked_by_w
 
