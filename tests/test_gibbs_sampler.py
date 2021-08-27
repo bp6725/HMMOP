@@ -22,4 +22,5 @@ class TestGibbsSampler(TestCase):
                                     ['0', '0', '1', '2', '2', '1', '0', '2', '4', '1', '0','3', '1', '4', '0'],
                                     ['4','1','1','3','2','1','2','3','1','0','0','3','1','4','0'],
                                     ['0','1','4','2','2','1','0','3','4','1','1','3','1','4','0']]
-        res = gs.sample_known_emissions(all_relvent_observations,start_probs,emissions_table,10,20)
+        N = [len(seq) +1 for seq in all_relvent_observations]
+        res = gs.sample_known_emissions(all_relvent_observations,start_probs,emissions_table,10,20,N=N)

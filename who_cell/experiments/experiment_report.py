@@ -103,11 +103,19 @@ class ExperimentReport() :
             if ('start' in states[e[0]].name):
                 continue
             if ('end' in states[e[1]].name):
-                final_states.append(eval(states[e[0]].name))
+                try:
+                    final_states.append(eval(states[e[0]].name))
+                except:
+                    final_states.append(states[e[0]].name)
                 continue
 
-            _from = eval(states[e[0]].name)
-            _to = eval(states[e[1]].name)
+            try :
+                _from = eval(states[e[0]].name)
+                _to = eval(states[e[1]].name)
+            except :
+                _from = states[e[0]].name
+                _to = states[e[1]].name
+
             _weight = e[2]
 
             if _from not in transition_dict.keys():
@@ -126,16 +134,18 @@ class ExperimentReport() :
             states[(_d, _t)] = _state
         return states
 
-    def _calculate_prob_single_sample(self,gs,start_prob,state_to_distrbution_param_mapping,transition_dict,
-                                      param,_params,_states,sample):
+    @staticmethod
+    def _calculate_prob_single_sample(start_prob,state_to_distrbution_param_mapping,transition_dict,
+                                      param,_params,_states,is_known_emm,sample):
         N = max(_params['N'], len(sample))
-        emm = gs._build_emmisions_for_sample(param['is_acyclic'], sample, list(range(len(sample))),
-                                             state_to_distrbution_param_mapping, N, normalized_emm=False)
-        prior = gs._fwd_bkw(param['is_acyclic'], _states, start_prob, transition_dict, emm, N, only_forward=True)
+        emm = GibbsSampler._build_emmisions_for_sample(param['is_acyclic'], sample, list(range(len(sample))),
+                                             state_to_distrbution_param_mapping, N, normalized_emm=False,
+                                                       is_known_emm = is_known_emm)
+        prior = GibbsSampler._fwd_bkw(param['is_acyclic'], _states, start_prob, transition_dict, emm, N, only_forward=True)
 
         return sum([sum(time_prior.values()) for time_prior in prior])
 
-    def _calculate_prob_of_sample(self, model, samples, param,start_probabilites):
+    def _calculate_prob_of_sample(self, model, samples, param,start_probabilites,is_known_emm = False):
         if type(param) is not dict :
             _params = {k: v for k, v in param}
         else :
@@ -144,33 +154,45 @@ class ExperimentReport() :
             states = model.get_params()['states']
             transition_dict, final_states = self._extrect_states_transitions_dict_from_pome_model(model, states)
 
-            _states_dict = {eval(s.name): s for s in states if not (('start' in s.name) or ('end' in s.name))}
-            _states = [eval(s.name) for s in states if not (('start' in s.name) or ('end' in s.name))]
-            state_to_distrbution_param_mapping = {eval(s.name): s.distribution.parameters for s in states
-                                                  if not (('start' in s.name) or ('end' in s.name))}
+            try :
+                _states_dict = {eval(s.name): s for s in states if not (('start' in s.name) or ('end' in s.name))}
+                _states = [eval(s.name) for s in states if not (('start' in s.name) or ('end' in s.name))]
+                state_to_distrbution_param_mapping = {eval(s.name): s.distribution.parameters for s in states
+                                                      if not (('start' in s.name) or ('end' in s.name))}
+            except :
+                _states_dict = {(s.name): s for s in states if not (('start' in s.name) or ('end' in s.name))}
+                _states = [(s.name) for s in states if not (('start' in s.name) or ('end' in s.name))]
+                state_to_distrbution_param_mapping = {(s.name): s.distribution.parameters[0] for s in states
+                                                      if not (('start' in s.name) or ('end' in s.name))}
         else:
             print('hello')
             #transition_dict = model[1]
             #states = build_states_from_mues_matrix(model[0], _params['N'], _params['d'])
 
-        gs = GibbsSampler(_params['N'], _params['d'])
+        gs = GibbsSampler(_params['N'])
         start_prob = gs._build_start_prob(_states_dict,start_probabilites)
-        _partial_calculate_prob_single_sample = partial(self._calculate_prob_single_sample,gs,start_prob,
+        _partial_calculate_prob_single_sample = partial(ExperimentReport._calculate_prob_single_sample,start_prob,
                                                         state_to_distrbution_param_mapping,transition_dict,
-                                                        param,_params,_states)
+                                                        param,_params,_states,is_known_emm)
 
         with Pool(base_config.n_cores) as p :
             results = p.map(_partial_calculate_prob_single_sample,samples)
 
         return results
 
-    def _kl_distances_over_original(self, original_model, sampled_models, params,start_probabilites):
-        if params['is_acyclic']:
-            samples_for_comperison = original_model.sample(1000,length=params['N'])
+    def _kl_distances_over_original(self, original_model, sampled_models, params,start_probabilites,is_known_emm = False,
+                                    number_of_samples = 500,external_samples = None):
+        if external_samples is None :
+
+            if params['is_acyclic']:
+                samples_for_comperison = original_model.sample(number_of_samples,length=params['N'])
+            else :
+                samples_for_comperison = original_model.sample(number_of_samples)
         else :
-            samples_for_comperison = original_model.sample(1000)
+            samples_for_comperison = external_samples
+
         _org_prob = self._calculate_prob_of_sample(original_model, samples_for_comperison,
-                                                   params,start_probabilites)
+                                                   params, start_probabilites, is_known_emm=is_known_emm)
 
         results = []
         for _model_for_compr in sampled_models:
@@ -275,15 +297,18 @@ class ExperimentReport() :
         all_measure_results = {}
         with tqdm(total=sum([len(v) for k,v in all_results.items()])) as pbar:
             for single_model_permuts in all_results.values():
+                original_model = single_model_permuts[0]['original_pome_model']
+                external_samples = original_model.sample(300,single_model_permuts[0]['mutual_params']["N"])
+
                 single_model_results = {}
                 for unique_permut in single_model_permuts.values() :
                     params = {**unique_permut['mutual_params'], **unique_permut['hyper_params']}
-                    original_model = unique_permut['original_pome_model']
                     sampled_models = [self._build_pome_model_from_collections(mues, trans, params,unique_permut['is_acyclic'],unique_permut) for
                                         mues, trans in zip(unique_permut['all_mues'], unique_permut['all_transitions'])]
 
                     measures_over_iters = self._kl_distances_over_original(original_model, sampled_models,
-                                                                           params,unique_permut['start_probabilites'])
+                                                                           params,unique_permut['start_probabilites'],
+                                                                           external_samples=external_samples)
 
                     exp_name = self.__build_exp_name(unique_permut['hyper_params'])
                     single_model_results[str(exp_name)] = measures_over_iters

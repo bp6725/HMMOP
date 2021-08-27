@@ -1,3 +1,3 @@
 
 
-n_cores = 3
+n_cores = 6

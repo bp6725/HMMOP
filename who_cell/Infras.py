@@ -1,5 +1,6 @@
 import os
 import pickle as pkl
+from pathlib import Path
 
 class Infras() :
 
@@ -24,7 +25,7 @@ class Infras() :
 
             params_signature = '_'.join(params)
             params_signature = params_signature.replace(' ', '').replace('.', '')
-            cache_path = os.path.join(r"C:\Repos\WhoCell\cache",
+            cache_path = os.path.join(r"../../cache",
                                       params_signature + ".pkl")
 
             if os.path.exists(cache_path):

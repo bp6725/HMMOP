@@ -145,8 +145,10 @@ class GibbsExperiment() :
     def solve_return_results_mutual_model(params,is_acyclic,pome_results,
                                           all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                           w_smapler_n_iter = 100):
+        print(params)
         # solve
-        sampler = GibbsSampler(params['N'], params['d'])
+        N = params['N'] if  params['is_few_observation_model'] else 2
+        sampler = GibbsSampler(N, params['d'])
         all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
             sampler.sample(is_acyclic,all_relvent_observations, pome_results['start_probabilites'],
                            mues_for_sampler,sigmas_for_sampler,params['N_itres'], w_smapler_n_iter=w_smapler_n_iter)
@@ -165,7 +167,7 @@ class GibbsExperiment() :
                    "sampled_transitions_dict": sampled_transitions_dict,
                    "sampled_mues": sampled_mues
                     }
-
+        print("finish")
         return results
 
     def simulate_solve_return_results(self, easy_mode=False, w_smapler_n_iter = 100):
@@ -307,7 +309,7 @@ class GibbsExperiment() :
 
     @staticmethod
     def kl_distances_over_original(original_model, sampled_models):
-        samples_for_comperison = original_model.sample(1000)
+        samples_for_comperison = original_model.sample(300)
 
         results = []
         for _model_for_compr in sampled_models:
