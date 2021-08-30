@@ -10,6 +10,7 @@ import random
 import copy
 import pandas as pd
 import itertools
+from functools import reduce
 import networkx as nx
 import holoviews as hv
 from IPython.display import display, HTML,clear_output
@@ -286,6 +287,20 @@ class GibbsSampler() :
 
         return np.random.choice(possible_options_for_dim, p=np.array(probs_of_opts)/sum(probs_of_opts))
 
+    def _calc_alpha(self,_old_dim_vector, _curr_dim_vector, y_from_x_probs) :
+        old_prob = reduce(lambda x, y: x * y, [y_from_x_probs[(k, w)] for k, w in enumerate(_old_dim_vector)])
+        curr_prob = reduce(lambda x, y: x * y, [y_from_x_probs[(k, w)] for k, w in enumerate(_curr_dim_vector)])
+
+        if curr_prob == 0 :
+            return 1.1
+        elif old_prob == 0:
+            return 0
+
+        return old_prob/curr_prob
+
+
+        return None
+
     def sample_msf_using_sim(self,msf,k,N, n_iter,y_from_x_probs, recursion_msf=False):
         initial_vector = sorted(random.sample(range(N), k))
         all_sampled_full_dims = []
@@ -296,9 +311,14 @@ class GibbsSampler() :
         for _ in range(n_iter):
             for dim in range(k):
                 _sample = self.sample_cond_prob_single_dim(k,N,_curr_dim_vector, dim, msf, recursion_msf,y_from_x_probs)
+                _old_dim_vector = _curr_dim_vector
                 _curr_dim_vector[dim] = _sample
-                res_samples_per_dim[_sample, dim] += 1
-                all_sampled_full_dims.append(copy.copy(_curr_dim_vector))
+                alpha_for_mh = self._calc_alpha(_old_dim_vector,_curr_dim_vector,y_from_x_probs)
+                if np.random.rand() > alpha_for_mh :
+                    _curr_dim_vector = _old_dim_vector
+                else :
+                    res_samples_per_dim[_sample, dim] += 1
+                    all_sampled_full_dims.append(copy.copy(_curr_dim_vector))
                 # pbar.update(1)
 
         return all_sampled_full_dims[-1]
