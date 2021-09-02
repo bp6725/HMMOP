@@ -1,3 +1,11 @@
 /notebooks/markov_network
 /data/
 /results/notebooks_results_analysis/results.pkl
+__pycache__/
+*.py[cod]
+*.pyc[cod]
+*$py.class
+*.pkl
+/benchmarks/POS_tagging/data/
+/few_observations/
+/results/
