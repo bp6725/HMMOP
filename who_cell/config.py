@@ -1,3 +1,3 @@
 
 
-n_cores = 1
+n_cores = 4

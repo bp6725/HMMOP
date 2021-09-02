@@ -114,7 +114,7 @@ class GibbsExperiment() :
                                     w_smapler_n_iter = combined_params['w_smapler_n_iter'])
                 with open(_cache_path,'wb') as f :
                     pickle.dump(result,f)
-
+            if result is None : continue
             #region update result param
             result['mutual_params'] = mutual_model_params_dict
             result['hyper_params'] = _hyper_param_set
@@ -145,6 +145,8 @@ class GibbsExperiment() :
     def solve_return_results_mutual_model(params,is_acyclic,pome_results,
                                           all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                           w_smapler_n_iter = 100):
+        if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
+            return None
         print(params)
         # solve
         N = params['N'] if  params['is_few_observation_model'] else 2
