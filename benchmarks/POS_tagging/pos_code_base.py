@@ -19,27 +19,28 @@ class PosCodeBase() :
                            N, description, known_transitions, title, is_only_observed,
                            comper_transitions, comper_transitions_title, state_order_for_plot):
         gs = GibbsSampler(2, 5, transition_sampling_profile="observed" if is_only_observed else 'all')
-        sampled_transitions, ws, transitions, states_picked_by_w = gs.sample_known_emissions(test_set_words,
+        sampled_transitions, ws, transitions, states_picked_by_w,all_alphas = gs.sample_known_emissions(test_set_words,
                                                                                              start_probs,
                                                                                              emms_probs,
                                                                                              number_of_iters, N=N)
 
-        print(description)
-        print(f"the format is \"known / {comper_transitions_title}/{title} \") ")
+        # print(description)
+        # print(f"the format is \"known / {comper_transitions_title}/{title} \") ")
+        #
+        # if comper_transitions is None:
+        #     PosCodeBase.compare_transition(known_transitions, transitions[-1])
+        # else:
+        #     PosCodeBase.compare_transition(known_transitions, comper_transitions, transitions[-1])
 
-        if comper_transitions is None:
-            PosCodeBase.compare_transition(known_transitions, transitions[-1])
-        else:
-            PosCodeBase.compare_transition(known_transitions, comper_transitions, transitions[-1])
-
-        PosCodeBase.plot_w_dist(ws, test_set_words)
-
-        PosCodeBase.plot_states_transitions_as_lines(known_transitions, transitions[-1], state_order_for_plot, f"{title}")
+        # PosCodeBase.plot_w_dist(ws, test_set_words)
+        #
+        # PosCodeBase.plot_states_transitions_as_lines(known_transitions, transitions[-1], state_order_for_plot, f"{title}")
 
         res = {"sampled_transitions": sampled_transitions,
                "ws": ws,
                "transitions": transitions,
-               "states_picked_by_w": states_picked_by_w}
+               "states_picked_by_w": states_picked_by_w,
+               "all_alphas":all_alphas}
         return res
 
     @staticmethod

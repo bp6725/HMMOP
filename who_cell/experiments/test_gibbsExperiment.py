@@ -40,7 +40,7 @@ class TestGibbsExperiment(TestCase):
 
     def test_POS(self):
         import pickle
-        with open(r"C:\Repos\WhoCell\benchmarks\POS_tagging\all_you_need_for_sampling.pkl", 'rb') as f:
+        with open(r"../../benchmarks/POS_tagging/all_you_need_for_sampling.pkl", 'rb') as f:
             [few_obs_test_set_words, start_probs, emms_probs, number_of_iters, _known_N] = pickle.load( f)
 
         gs = GibbsSampler(2,5)
