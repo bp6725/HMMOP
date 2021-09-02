@@ -45,3 +45,12 @@ class TestGibbsExperiment(TestCase):
 
         gs = GibbsSampler(2,5)
         res = gs.sample_known_emissions(few_obs_test_set_words, start_probs, emms_probs, number_of_iters, N=_known_N)
+
+
+    def test_Penn_POS(self):
+        import pickle
+        with open(r"C:\Repos\WhoCell\benchmarks\POS_tagging\tmp_cache.pkl", 'rb') as f:
+            [test_set_words,start_probs,emms_probs,number_of_iters] = pickle.load( f)
+
+        gs = GibbsSampler(2,5)
+        all_sampled_transitions, all_ws, all_transitions,_states_picked_by_w = gs.sample_known_emissions(test_set_words,start_probs,emms_probs,number_of_iters)
