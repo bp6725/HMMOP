@@ -26,6 +26,10 @@ from functools import lru_cache
 from functools import partial
 random.seed(10)
 from multiprocessing import Pool
+from functools import wraps
+from who_cell.models.utils import Utils
+from  itertools import chain
+from collections import defaultdict
 
 from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
 
@@ -98,6 +102,8 @@ class GibbsSampler() :
 
     def sample_known_emissions(self, all_relvent_observations, start_probs,
                                emissions_table, Ng_iters, w_smapler_n_iter = 20,N = None):
+        print("start M-H sampling")
+        emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
 
@@ -105,36 +111,48 @@ class GibbsSampler() :
 
         curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
 
-        curr_walk = self.sample_walk_from_params(True, all_relvent_observations, N,
+        curr_walk,alpha = self.sample_walk_from_params(True, all_relvent_observations, N,
                                                  emissions_table, start_probs,
                                                  curr_w, curr_trans)
         _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
         sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
 
+        all_alphas = [alpha]
         all_sampled_transitions = [sampled_transitions]
         all_transitions = [curr_trans]
         all_ws = [curr_w]
         all_states_picked_by_w = [_states_picked_by_w]
         with tqdm(total=Ng_iters) as pbar:
             for i in range(Ng_iters):
-                curr_trans = self.sample_trans_from_params(sampled_transitions, states)
-                curr_w = self.sample_ws_from_params(all_relvent_observations, curr_walk,emissions_table, N,
-                                                     n_iters=w_smapler_n_iter)
+                curr_trans,alpha0 = self.sample_trans_from_params(sampled_transitions, states,
+                                                           curr_params =[curr_trans,curr_w,curr_walk,None,emissions_table],
+                                                           stage_name="transitions" ,
+                                                           observations = all_relvent_observations)
+                curr_w,alpha1 = self.sample_ws_from_params(all_relvent_observations, curr_walk,emissions_table, N,
+                                                     n_iters=w_smapler_n_iter,
+                                                    curr_params=[curr_trans, curr_w, curr_walk, None, emissions_table],
+                                                    stage_name="w",
+                                                    observations=all_relvent_observations)
                 _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
-                curr_walk = self.sample_walk_from_params(True, all_relvent_observations, N,
+                curr_walk,alpha2 = self.sample_walk_from_params(True, all_relvent_observations, N,
                                                          emissions_table, start_probs,
-                                                         curr_w, curr_trans)
+                                                         curr_w, curr_trans,
+                                                         curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                      emissions_table],
+                                                         stage_name="walk",
+                                                         observations=all_relvent_observations)
 
                 sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
 
+                all_alphas.append(np.mean([alpha0,alpha1,alpha2]))
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
                 all_states_picked_by_w.append(_states_picked_by_w)
                 all_ws.append(curr_w)
                 pbar.update(1)
-        return  all_sampled_transitions, all_ws, all_transitions,all_states_picked_by_w
+        return  all_sampled_transitions, all_ws, all_transitions,all_states_picked_by_w,all_alphas
 
     def compare_transitions_prob_to_count(self,transitions_prob,transitions_count,n_traj,N,d):
 
@@ -163,7 +181,6 @@ class GibbsSampler() :
     # endregion
 
     # region Private
-
     def __build_initial_state_to_distrbution_param_mapping(self,known_mues, sigmas,states) :
         if known_mues is not None :
             return {state:(known_mues[state],sigmas[state])  for state in states if state not in ['start','end']}
@@ -524,6 +541,7 @@ class GibbsSampler() :
 
         return new_mues
 
+    @Utils.update_based_on_alpha
     def sample_trans_from_params(self,all_transitions,states):
         sampled_transitions = {state: {} for state in states}
 
@@ -571,6 +589,7 @@ class GibbsSampler() :
         _simulted_w = self.sample_msf_using_sim(msf, len(traj), seq_length, n_iters, y_from_x_probs, False)
         return _simulted_w
 
+    @Utils.update_based_on_alpha
     def sample_ws_from_params(self,sampled_trajs, curr_walk,state_to_distrbution_param_mapping,N, n_iters=500):
         if type(N) is list :
             samples_data = [(sampled_trajs[i],curr_walk[i],N[i]) for i in  range(len(sampled_trajs))]
@@ -597,6 +616,7 @@ class GibbsSampler() :
                                   start_prob, curr_trans, emmisions, seq_length)
         return posterior
 
+    @Utils.update_based_on_alpha
     def sample_walk_from_params(self,is_acyclic, sampled_trajs,N, state_to_distrbution_param_mapping,
                                 start_prob, curr_ws, curr_trans):
         if type(N) is list :
@@ -790,6 +810,14 @@ class GibbsSampler() :
 
         return states_count,observations_sum
 
+    def impute_emissions_table_with_zeros(self, emissions_table,all_relvent_observations) :
+        all_possible_emissions = set(chain(*all_relvent_observations))
+        new_emissions_table = emissions_table
+        for _emm in all_possible_emissions :
+            for k,v in emissions_table.items():
+                if _emm not in v.keys() :
+                    new_emissions_table[k][_emm] = 0
+        return new_emissions_table
     # endregion
 
 if __name__ == '__main__':
