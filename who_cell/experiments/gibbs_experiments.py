@@ -90,7 +90,9 @@ class GibbsExperiment() :
                                         sigma=mutual_model_params_dict['sigma']) # we need max_number_of_sampled_traj to know how much traj to pre sample so the traj will be mutual
 
         pome_results = simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
-                                       simulator.mues, simulator.sigmas,is_acyclic)
+                                       simulator.mues, simulator.sigmas,is_acyclic,
+                                       is_bipartite = mutual_model_params_dict['bipartite'],
+                                       inner_outer_trans_probs_ratio = mutual_model_params_dict['inner_outer_trans_probs_ratio'])
 
         simulator.update_known_mues_and_sigmes_to_state_mapping(pome_results["state_to_distrbution_param_mapping"])
 

@@ -59,7 +59,7 @@ class GibbsSampler() :
             curr_w = [sorted(np.random.choice(range(N), len(obs), replace=False)) for obs in all_relvent_observations]
 
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
-        curr_walk = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
+        curr_walk,_ = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
                                                  curr_w, curr_trans)
 
         sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w,
@@ -79,10 +79,10 @@ class GibbsSampler() :
                 state_to_distrbution_param_mapping = self._update_distributions_params(
                     state_to_distrbution_param_mapping, curr_mus)
 
-                curr_trans = self.sample_trans_from_params(sampled_transitions,states)
-                curr_w = self.sample_ws_from_params(all_relvent_observations, curr_walk,state_to_distrbution_param_mapping,N, n_iters=w_smapler_n_iter)
+                curr_trans,_ = self.sample_trans_from_params(sampled_transitions,states)
+                curr_w,_ = self.sample_ws_from_params(all_relvent_observations, curr_walk,state_to_distrbution_param_mapping,N, n_iters=w_smapler_n_iter)
 
-                curr_walk = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N,
+                curr_walk,_ = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N,
                                                          state_to_distrbution_param_mapping,start_probs,
                                                          curr_w, curr_trans)
 

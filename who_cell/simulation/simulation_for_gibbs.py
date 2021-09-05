@@ -318,6 +318,8 @@ class Simulator_for_Gibbs():
         # we need this because we need to share the dist instances for pomegranate
         all_params_to_distrbutions = {(_params[0], _params[1]):NormalDistribution(_params[0], _params[1]) for k,_params in
                             state_to_distrbution_param_mapping.items() if ((k != 'start') and (k != 'end'))}
+        if 'start' not in state_to_distrbution_param_mapping.keys() :
+            state_to_distrbution_param_mapping['start'] = (-1,-1)
 
         all_model_pome_states = {}
         model = HiddenMarkovModel()
@@ -365,7 +367,7 @@ class Simulator_for_Gibbs():
             normalized_transition_matrix_sparse[_from] = {_to: (val / _sum) for _to, val in to.items()}
         return normalized_transition_matrix_sparse
 
-    def build_pome_model(self,N, d, mues, sigmas,is_acyclic = True):
+    def build_pome_model(self,N, d, mues, sigmas,is_acyclic = True,is_bipartite = False,inner_outer_trans_probs_ratio = 0):
         '''
 
         :param N:
@@ -381,9 +383,16 @@ class Simulator_for_Gibbs():
             start_probabilites), params_signature = \
                 self.build_template_model_parameters(N,d,mues,sigmas)
         else :
-            (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
-                params_signature = \
-                self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
+            if not is_bipartite:
+                (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
+                    params_signature = \
+                    self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
+            else:
+                (state_to_distrbution_param_mapping, transition_matrix_sparse, \
+                 start_probabilites), params_signature = self.build_bipartite_template_model_parameters(N, d, mues,
+                                                                                                        sigmas,
+                                                                                                        inner_outer_trans_probs_ratio)
+
             #TODO : this will help us when we will try to build acyclic network with complex dynamic - with some kind of temporal direction
             #first we start with building the new transitions matrix - only unique states
             # transition_matrix_sparse, state_to_distrbution_param_mapping = self._merge_to_cyclic_chain(state_to_distrbution_param_mapping,
@@ -414,3 +423,29 @@ class Simulator_for_Gibbs():
     def update_known_mues_and_sigmes_to_state_mapping(self,state_to_distrbution_param_mapping) :
         self.states_known_mues = {state:params[0] for state,params in state_to_distrbution_param_mapping.items()}
         self.states_known_sigmas = {state:params[1] for state,params in state_to_distrbution_param_mapping.items()}
+
+    @Infras.storage_cache
+    def build_bipartite_template_model_parameters(self, N, d, mues, sigmas,inner_outer_trans_probs_ratio):
+        n_states = len(mues)
+        all_distrbutions_params_mapping = {str((mu, sigmas[i])): (mu, sigmas[i]) for i, mu in enumerate(mues)}
+
+        group_a = random.sample(all_distrbutions_params_mapping.keys(), int(n_states / 2))
+        group_b = set(all_distrbutions_params_mapping) - set(group_a)
+
+        sparse_transition_matrix = {state: {} for state in all_distrbutions_params_mapping.keys()}
+        sparse_transition_matrix['start'] = {}
+        for s1, s2 in itertools.product(all_distrbutions_params_mapping, all_distrbutions_params_mapping):
+            if ((s1 in group_a) and (s2 in group_a)) or ((s1 in group_b) and (s2 in group_b)):
+                _trans_prob = np.random.rand()
+            else:
+                _trans_prob = inner_outer_trans_probs_ratio * np.random.rand()
+
+            sparse_transition_matrix[s1][s2] = _trans_prob
+
+        for s in group_a:
+            sparse_transition_matrix['start'][s] = 1
+
+        return all_distrbutions_params_mapping, sparse_transition_matrix, \
+               {s:(1 if s in group_a else 0) for s in all_distrbutions_params_mapping.keys()}
+
+

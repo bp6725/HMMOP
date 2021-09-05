@@ -9,11 +9,13 @@ if not sys.warnoptions:
 
 class TestGibbsExperiment(TestCase):
     def test_run_multi_params_and_plot_report(self):
-        model_defining_params_pre = ['N', "d", "n_states",'is_acyclic','sigma']
+        model_defining_params_pre = ['N', "d", "n_states",'is_acyclic','sigma','bipartite']
         params_dict = {
             'is_acyclic': [True],
             'known_mues' : [False],
             "is_few_observation_model":[False,True],
+            "bipartite" : [True],
+            "inner_outer_trans_probs_ratio":[5],
             'N': [50,15],
             'd': [5],
             'n_states': [15],
