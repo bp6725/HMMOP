@@ -69,12 +69,9 @@ class PosDataBuilder() :
         if not partial_trajs :
             return self.markovien_sentence_words,self.markovien_sentence_tags
 
-        if self.markovien_few_obs_test_set_words is None :
-            few_observations = Simulator_for_Gibbs.sample_traj_for_few_obs(pc, self.markovien_sentence_words)
-            markovien_few_obs_test_set_words, markovien_few_obs_test_set_tags = few_observations[0], few_observations[1]
-            self.markovien_few_obs_test_set_words, self.markovien_few_obs_test_set_tags = markovien_few_obs_test_set_words, markovien_few_obs_test_set_tags
-        else :
-            markovien_few_obs_test_set_words, markovien_few_obs_test_set_tags = self.markovien_few_obs_test_set_words, self.markovien_few_obs_test_set_tags
+        few_observations = Simulator_for_Gibbs.sample_traj_for_few_obs(pc, self.markovien_sentence_words)
+        markovien_few_obs_test_set_words, markovien_few_obs_test_set_tags = few_observations[0], few_observations[1]
+        self.markovien_few_obs_test_set_words, self.markovien_few_obs_test_set_tags = markovien_few_obs_test_set_words, markovien_few_obs_test_set_tags
 
         return markovien_few_obs_test_set_words, markovien_few_obs_test_set_tags
 

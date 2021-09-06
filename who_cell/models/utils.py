@@ -9,7 +9,9 @@ class Utils() :
         @wraps(func)
         def _update_based_on_alpha(*args, **kwargs):
             if "stage_name" not in kwargs.keys() :
-                return func(*args, **kwargs),None
+                return func(*args, **kwargs),0
+            func_inputs = {k: v for k, v in kwargs.items() if k not in ["curr_params", "stage_name", "observations"]}
+            return func(*args, **func_inputs),0
             stage_name = kwargs["stage_name"]
             observations = kwargs["observations"]
             func_inputs = {k: v for k, v in kwargs.items() if k not in ["curr_params", "stage_name", "observations"]}
