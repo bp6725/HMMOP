@@ -309,7 +309,10 @@ class GibbsSampler() :
         curr_prob = reduce(lambda x, y: x * y, [y_from_x_probs[(k, w)] for k, w in enumerate(_curr_dim_vector)])
 
         if curr_prob == 0 :
-            return 0
+            if old_prob == 0 :
+                return 1
+            else :
+                return 0
         elif old_prob == 0:
             return 1
 
