@@ -309,36 +309,31 @@ class GibbsSampler() :
         curr_prob = reduce(lambda x, y: x * y, [y_from_x_probs[(k, w)] for k, w in enumerate(_curr_dim_vector)])
 
         if curr_prob == 0 :
-            return 1.1
-        elif old_prob == 0:
             return 0
+        elif old_prob == 0:
+            return 1
 
-        return old_prob/curr_prob
+        return curr_prob / old_prob
 
 
         return None
 
     def sample_msf_using_sim(self,msf,k,N, n_iter,y_from_x_probs, recursion_msf=False):
         initial_vector = sorted(random.sample(range(N), k))
-        all_sampled_full_dims = []
 
-        res_samples_per_dim = np.zeros((N, k))
         _curr_dim_vector = copy.copy(initial_vector)
-        # with tqdm(total=n_iter) as pbar:
         for _ in range(n_iter):
             for dim in range(k):
                 _sample = self.sample_cond_prob_single_dim(k,N,_curr_dim_vector, dim, msf, recursion_msf,y_from_x_probs)
                 _old_dim_vector = _curr_dim_vector
                 _curr_dim_vector[dim] = _sample
                 alpha_for_mh = self._calc_alpha(_old_dim_vector,_curr_dim_vector,y_from_x_probs)
-                if np.random.rand() > alpha_for_mh :
-                    _curr_dim_vector = _old_dim_vector
+                if np.random.rand() < alpha_for_mh :
+                    continue
                 else :
-                    res_samples_per_dim[_sample, dim] += 1
-                    all_sampled_full_dims.append(copy.copy(_curr_dim_vector))
-                # pbar.update(1)
+                    _curr_dim_vector = _old_dim_vector
 
-        return all_sampled_full_dims[-1]
+        return copy.copy(_curr_dim_vector)
 
     def _build_states_map(self, known_pome_model):
         states = {}
@@ -562,15 +557,16 @@ class GibbsSampler() :
 
         return sampled_transitions
 
-    def __prob_obs_for_state(self,state,obs,state_to_distrbution_param_mapping):
-        if type(next(iter(state_to_distrbution_param_mapping.values()))) is tuple :
+    def __prob_obs_for_state(self,state,obs,state_to_distrbution_param_mapping,is_tuple):
+        if is_tuple :
             return pomegranate.distributions.NormalDistribution(state_to_distrbution_param_mapping[state][0],
                                                             state_to_distrbution_param_mapping[state][1]).probability(obs)
-        if type(next(iter(state_to_distrbution_param_mapping.values()))) is dict :
+        else :
             return state_to_distrbution_param_mapping[state][obs] if obs in state_to_distrbution_param_mapping[state] else 0
 
     def _extract_relevent_probs_from_walk(self, traj, walk, state_to_distrbution_param_mapping) :
-        y_from_x_probs = {(obs,state): self.__prob_obs_for_state(walk[state],traj[obs],state_to_distrbution_param_mapping) for
+        is_tuple = type(next(iter(state_to_distrbution_param_mapping.values()))) is tuple
+        y_from_x_probs = {(obs,state): self.__prob_obs_for_state(walk[state],traj[obs],state_to_distrbution_param_mapping,is_tuple) for
                           obs,state in itertools.product(range(len(traj)), range(len(walk))) }
 
         return y_from_x_probs
@@ -578,10 +574,15 @@ class GibbsSampler() :
     def _sample_ws_from_params(self,state_to_distrbution_param_mapping,n_iters,N,sample_data) :
         if type(N) is list :
             traj, _curr_walk,_N = sample_data
-            seq_length = max(_N, len(_curr_walk))
+            seq_length = max(_N, len(traj))
         else :
             traj, _curr_walk = sample_data
-            seq_length = max(N, len(_curr_walk))
+            seq_length = max(N, len(traj))
+
+        if len(traj) == len(_curr_walk) :
+            return list(range(len(traj)))
+
+
 
         y_from_x_probs = self._extract_relevent_probs_from_walk(traj, _curr_walk, state_to_distrbution_param_mapping)
         msf = self.msf_creator(y_from_x_probs, seq_length)
