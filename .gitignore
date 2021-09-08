@@ -8,3 +8,17 @@ __pycache__/
 /benchmarks/POS_tagging/data/
 /few_observations/
 /results/
+
+*.pkl
+
+*.1number_of_smapled_traj5000N_itres100w_smapler_n_iter10
+
+*.5N_itres100w_smapler_n_iter10
+
+*.2N_itres500w_smapler_n_iter10
+
+benchmarks/bipartite/
+
+*.2N_itres80w_smapler_n_iter15
+
+benchmarks/simulations/
