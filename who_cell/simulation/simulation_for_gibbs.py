@@ -446,6 +446,6 @@ class Simulator_for_Gibbs():
             sparse_transition_matrix['start'][s] = 1
 
         return all_distrbutions_params_mapping, sparse_transition_matrix, \
-               {s:(1 if s in group_a else 0) for s in all_distrbutions_params_mapping.keys()}
+               {s:(1/len(group_a) if s in group_a else 0) for s in all_distrbutions_params_mapping.keys()}
 
 
