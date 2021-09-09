@@ -149,6 +149,8 @@ class GibbsExperiment() :
                                           w_smapler_n_iter = 100):
         if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
             return None
+        if ((params['is_few_observation_model'] == False) and (params['is_only_seen'] == True)):
+            return None
         print(params)
         # solve
         transition_sampling_profile = "all" if not params["is_only_seen"] else "observed"
