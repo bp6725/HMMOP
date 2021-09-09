@@ -42,7 +42,7 @@ class GibbsSampler() :
     # region Public
 
     def sample(self,is_acyclic, all_relvent_observations, start_probs,
-               known_mues,sigmas, Ng_iters, w_smapler_n_iter = 20,N=None):
+               known_mues,sigmas, Ng_iters, w_smapler_n_iter = 20,N=None,is_mh = False):
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start','end']))
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
@@ -59,7 +59,7 @@ class GibbsSampler() :
             curr_w = [sorted(np.random.choice(range(N), len(obs), replace=False)) for obs in all_relvent_observations]
 
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
-        curr_walk,_ = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
+        curr_walk,alpha= self.sample_walk_from_params(is_acyclic,all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
                                                  curr_w, curr_trans)
 
         sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w,
@@ -79,12 +79,25 @@ class GibbsSampler() :
                 state_to_distrbution_param_mapping = self._update_distributions_params(
                     state_to_distrbution_param_mapping, curr_mus)
 
-                curr_trans,_ = self.sample_trans_from_params(sampled_transitions,states)
-                curr_w,_ = self.sample_ws_from_params(all_relvent_observations, curr_walk,state_to_distrbution_param_mapping,N, n_iters=w_smapler_n_iter)
+                curr_trans,_ = self.sample_trans_from_params(sampled_transitions,states,
+                                                             curr_params =[curr_trans,curr_w,curr_walk,None,state_to_distrbution_param_mapping],
+                                                             stage_name="transitions" if is_mh else "no_mh" ,
+                                                             observations = all_relvent_observations)
+                curr_w,_ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
+                                                      state_to_distrbution_param_mapping,N,
+                                                      n_iters=w_smapler_n_iter,
+                                                      curr_params=[curr_trans, curr_w, curr_walk, None, state_to_distrbution_param_mapping],
+                                                      stage_name="w"  if is_mh else "no_mh",
+                                                      observations=all_relvent_observations)
 
                 curr_walk,_ = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N,
                                                          state_to_distrbution_param_mapping,start_probs,
-                                                         curr_w, curr_trans)
+                                                         curr_w, curr_trans,
+                                                           curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                      state_to_distrbution_param_mapping],
+                                                         stage_name="walk"  if is_mh else "no_mh",
+                                                         observations=all_relvent_observations)
+
 
                 sampled_transitions = self._exrect_transitions_from_walk(curr_walk,states,curr_w)
                 sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,
@@ -101,8 +114,7 @@ class GibbsSampler() :
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
     def sample_known_emissions(self, all_relvent_observations, start_probs,
-                               emissions_table, Ng_iters, w_smapler_n_iter = 20,N = None):
-        print("start M-H sampling")
+                               emissions_table, Ng_iters, w_smapler_n_iter = 5,N = None,is_mh = False):
         emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
@@ -127,12 +139,12 @@ class GibbsSampler() :
             for i in range(Ng_iters):
                 curr_trans,alpha0 = self.sample_trans_from_params(sampled_transitions, states,
                                                            curr_params =[curr_trans,curr_w,curr_walk,None,emissions_table],
-                                                           stage_name="transitions" ,
+                                                           stage_name="transitions"  if is_mh else "no_mh",
                                                            observations = all_relvent_observations)
                 curr_w,alpha1 = self.sample_ws_from_params(all_relvent_observations, curr_walk,emissions_table, N,
                                                      n_iters=w_smapler_n_iter,
                                                     curr_params=[curr_trans, curr_w, curr_walk, None, emissions_table],
-                                                    stage_name="w",
+                                                    stage_name="w"  if is_mh else "no_mh",
                                                     observations=all_relvent_observations)
                 _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
@@ -141,7 +153,7 @@ class GibbsSampler() :
                                                          curr_w, curr_trans,
                                                          curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                       emissions_table],
-                                                         stage_name="walk",
+                                                         stage_name="walk"  if is_mh else "no_mh",
                                                          observations=all_relvent_observations)
 
                 sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
@@ -325,15 +337,20 @@ class GibbsSampler() :
         initial_vector = sorted(random.sample(range(N), k))
 
         _curr_dim_vector = copy.copy(initial_vector)
+        flag = 0
         for _ in range(n_iter):
+            # if flag > 3*k : break
             for dim in range(k):
                 _sample = self.sample_cond_prob_single_dim(k,N,_curr_dim_vector, dim, msf, recursion_msf,y_from_x_probs)
                 _old_dim_vector = _curr_dim_vector
                 _curr_dim_vector[dim] = _sample
                 alpha_for_mh = self._calc_alpha(_old_dim_vector,_curr_dim_vector,y_from_x_probs)
                 if np.random.rand() < alpha_for_mh :
+                    if _old_dim_vector == _curr_dim_vector :
+                        flag += 1
                     continue
                 else :
+                    flag += 1
                     _curr_dim_vector = _old_dim_vector
 
         return copy.copy(_curr_dim_vector)

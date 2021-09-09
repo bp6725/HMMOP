@@ -151,11 +151,13 @@ class GibbsExperiment() :
             return None
         print(params)
         # solve
+        transition_sampling_profile = "all" if not params["is_only_seen"] else "observed"
         N = params['N'] if  params['is_few_observation_model'] else 2
-        sampler = GibbsSampler(N, params['d'])
+        sampler = GibbsSampler(N, params['d'],transition_sampling_profile = transition_sampling_profile)
         all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
             sampler.sample(is_acyclic,all_relvent_observations, pome_results['start_probabilites'],
-                           mues_for_sampler,sigmas_for_sampler,params['N_itres'], w_smapler_n_iter=w_smapler_n_iter)
+                           mues_for_sampler,sigmas_for_sampler,params['N_itres'], w_smapler_n_iter=w_smapler_n_iter,
+                           is_mh=params["is_mh"])
 
         sampled_transitions_dict = all_sampled_transitions[-1]
         sampled_mues = all_mues[-1]
