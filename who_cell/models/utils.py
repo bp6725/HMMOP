@@ -72,7 +72,7 @@ class Utils() :
                 emissions_prob = [pomegranate.NormalDistribution(known_emissions[_walk[__w]][0],known_emissions[_walk[__w]][1]).probability(traj[k]) for k, __w in enumerate(_w)]
         elif curr_mu is not None:
             raise NotImplementedError("lazy you")
-        transitions_prob = [_trans[_f][_t] for _f, _t in zip(_walk, _walk[1:])]
+        transitions_prob = [(_trans[_f][_t] if _t in _trans[_f].keys() else 0) for _f, _t in zip(_walk, _walk[1:])]
 
         return reduce(lambda x, y: x * y, emissions_prob) * reduce(lambda x, y: x * y, transitions_prob)
 
