@@ -306,7 +306,16 @@ class GibbsSampler() :
             raise NotImplementedError()
             # return partial(self._rec_msf_creator, y_from_x_probs, not_y_from_x_probs)
 
-    def sample_cond_prob_single_dim(self,k,N,dims_vector, ind_dim_for_sample, msf, recursion_msf,y_from_x_probs):
+    def choice(self,options, probs):
+        x = np.random.rand()
+        cum = 0
+        for i, p in enumerate(probs):
+            cum += p
+            if x < cum:
+                break
+        return options[i]
+
+    def sample_cond_prob_single_dim(self,k,N,dims_vector, ind_dim_for_sample,y_from_x_probs):
         _pre_value = dims_vector[(ind_dim_for_sample - 1)] if ind_dim_for_sample != 0 else -1
         _post_value = dims_vector[(ind_dim_for_sample + 1)] if (ind_dim_for_sample != (k - 1)) else N
 
@@ -314,7 +323,7 @@ class GibbsSampler() :
         probs_of_opts = [y_from_x_probs[(ind_dim_for_sample,poss_opt)] for poss_opt in possible_options_for_dim]
         probs_of_opts = probs_of_opts if sum(probs_of_opts) != 0 else np.array([1 for i in probs_of_opts])
 
-        return np.random.choice(possible_options_for_dim, p=np.array(probs_of_opts)/sum(probs_of_opts))
+        return self.choice(possible_options_for_dim, np.array(probs_of_opts)/sum(probs_of_opts))
 
     def _calc_alpha(self,_old_dim_vector, _curr_dim_vector, y_from_x_probs) :
         old_prob = reduce(lambda x, y: x * y, [y_from_x_probs[(k, w)] for k, w in enumerate(_old_dim_vector)])
@@ -333,7 +342,7 @@ class GibbsSampler() :
 
         return None
 
-    def sample_msf_using_sim(self,msf,k,N, n_iter,y_from_x_probs, recursion_msf=False):
+    def sample_msf_using_sim(self,k,N, n_iter,y_from_x_probs):
         initial_vector = sorted(random.sample(range(N), k))
 
         _curr_dim_vector = copy.copy(initial_vector)
@@ -341,7 +350,7 @@ class GibbsSampler() :
         for _ in range(n_iter):
             # if flag > 3*k : break
             for dim in range(k):
-                _sample = self.sample_cond_prob_single_dim(k,N,_curr_dim_vector, dim, msf, recursion_msf,y_from_x_probs)
+                _sample = self.sample_cond_prob_single_dim(k,N,_curr_dim_vector, dim,y_from_x_probs)
                 _old_dim_vector = _curr_dim_vector
                 _curr_dim_vector[dim] = _sample
                 alpha_for_mh = self._calc_alpha(_old_dim_vector,_curr_dim_vector,y_from_x_probs)
@@ -602,16 +611,13 @@ class GibbsSampler() :
         if len(traj) == len(_curr_walk) :
             return list(range(len(traj)))
 
-
-
         y_from_x_probs = self._extract_relevent_probs_from_walk(traj, _curr_walk, state_to_distrbution_param_mapping)
-        msf = self.msf_creator(y_from_x_probs, seq_length)
 
-        _simulted_w = self.sample_msf_using_sim(msf, len(traj), seq_length, n_iters, y_from_x_probs, False)
+        _simulted_w = self.sample_msf_using_sim(len(traj), seq_length, n_iters, y_from_x_probs)
         return _simulted_w
 
     @Utils.update_based_on_alpha
-    def sample_ws_from_params(self,sampled_trajs, curr_walk,state_to_distrbution_param_mapping,N, n_iters=500):
+    def sample_ws_from_params(self,sampled_trajs, curr_walk,state_to_distrbution_param_mapping,N, n_iters=10):
         if type(N) is list :
             samples_data = [(sampled_trajs[i],curr_walk[i],N[i]) for i in  range(len(sampled_trajs))]
         else :
