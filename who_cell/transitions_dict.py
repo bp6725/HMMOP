@@ -7,9 +7,12 @@ class transitions_dict(dict) :
     def __init__(self):
         self.null_transitions_dict = {}
         self.observed_transitions_dict  = {}
+        self.extended_observed_transitions_dict  = {}
 
     def __repr__(self):
-        return "all :" + super().__repr__() +os.linesep +"null :"+ self.null_transitions_dict.__repr__()+os.linesep +"not null :"+ self.observed_transitions_dict.__repr__()
+        return "all :" + super().__repr__() +os.linesep +"null :"+ self.null_transitions_dict.__repr__()+\
+               os.linesep +"not null :"+ self.observed_transitions_dict.__repr__() +\
+               os.linesep + "extended : " +self.extended_observed_transitions_dict.__repr__()
 
 
     def update_with_none(self,_from,_to,value = 1,is_null=False):
@@ -29,6 +32,20 @@ class transitions_dict(dict) :
             else:
                 self.observed_transitions_dict[_from][_to] = value
 
+    def update_extended_seen_transitions(self,list_of_seen_transitions):
+        for seen_trans in list_of_seen_transitions :
+            _f = seen_trans[0]
+            _t = seen_trans[1]
+
+            if _f not in self.extended_observed_transitions_dict.keys() :
+                self.extended_observed_transitions_dict[_f] = {_t:1}
+                continue
+            if _t not in self.extended_observed_transitions_dict[_f].keys() :
+                self.extended_observed_transitions_dict[_f][_t] = 1
+                continue
+            self.extended_observed_transitions_dict[_f][_t] += 1
+
+
     @staticmethod
     def create_from_another_dict(other_dict):
         new_trans_dict = transitions_dict()
@@ -36,6 +53,7 @@ class transitions_dict(dict) :
             new_trans_dict[copy.deepcopy(k)] = copy.deepcopy(v)
             new_trans_dict.null_transitions_dict[copy.deepcopy(k)] = copy.deepcopy(v)
             new_trans_dict.observed_transitions_dict[copy.deepcopy(k)] = copy.deepcopy(v)
+            new_trans_dict.extended_observed_transitions_dict[copy.deepcopy(k)] = copy.deepcopy(v)
         return new_trans_dict
 
 

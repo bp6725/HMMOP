@@ -149,11 +149,11 @@ class GibbsExperiment() :
                                           w_smapler_n_iter = 100):
         if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
             return None
-        if ((params['is_few_observation_model'] == False) and (params['is_only_seen'] == True)):
+        if ((params['is_few_observation_model'] == False) and (params['is_only_seen'] == "observed" or params['is_only_seen'] == "extended")):
             return None
         print(params)
         # solve
-        transition_sampling_profile = "all" if not params["is_only_seen"] else "observed"
+        transition_sampling_profile = params["is_only_seen"]
         N = params['N'] if  params['is_few_observation_model'] else 2
         sampler = GibbsSampler(N, params['d'],transition_sampling_profile = transition_sampling_profile)
         all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \

@@ -563,6 +563,9 @@ class GibbsSampler() :
         if self.transition_sampling_profile == 'observed':
             _transition_dict = all_transitions.observed_transitions_dict.items()
 
+        if self.transition_sampling_profile == 'extended':
+            _transition_dict = all_transitions.extended_observed_transitions_dict.items()
+
         for state,poss_trans in _transition_dict:
             poss_trans_states = [state for state in poss_trans.keys()]
             poss_trans_counts = [state for state in poss_trans.values()]
@@ -695,6 +698,52 @@ class GibbsSampler() :
             return {state: (priors[states_to_prior_maping[state]][0])
                     for state in sigmas.keys() if state not in ['start', 'end']}
 
+    def is_ordered_states_in_sequence(self,ordered_states, sequence):
+        i = 0
+        for val_to_look in ordered_states:
+            while (i < len(sequence)):
+                if sequence[i] == val_to_look: break
+                i = i + 1
+        return not i == len(sequence)
+
+    def is_optional_transition_is_seen(self,opt_seen_trans, pre_states_from_trajectory, post_states_from_trajectory,
+                                       all_transitions_of_walk, _curr_walk):
+        idx_item_in_list = lambda item, _list: [i for i, val in enumerate(_list) if val == item]
+        idx_of_trans = idx_item_in_list(opt_seen_trans, all_transitions_of_walk)
+        if len(idx_of_trans) == 0: return False
+
+        for possible_idx in idx_of_trans:
+            pre_states_from_walk = _curr_walk[:possible_idx]
+            post_states_from_walk = _curr_walk[possible_idx + 2:]
+
+            is_possible_pre = self.is_ordered_states_in_sequence(pre_states_from_trajectory, pre_states_from_walk) or (
+                        (len(pre_states_from_trajectory) == 0) and (len(pre_states_from_walk) == 0))
+
+            is_possible_post = self.is_ordered_states_in_sequence(post_states_from_trajectory, post_states_from_walk) or (
+                        (len(post_states_from_trajectory) == 0) and (len(post_states_from_walk) == 0))
+
+            if is_possible_pre and is_possible_post:
+                return True
+        return False
+
+    def get_all_seen_transitions(self,_curr_w, _curr_walk):
+        all_transitions_of_walk = [(_f, _t) for _f, _t in zip(_curr_walk, _curr_walk[1:])]
+
+        seen_states = [_curr_walk[i] for i in _curr_w]
+        optional_seen_transitions = [(_f, _t) for _f, _t in zip(seen_states, seen_states[1:])]
+
+        seen_transitions = []
+        for optional_seen_transitions_idx in range(len(optional_seen_transitions)):
+            opt_seen_trans = optional_seen_transitions[optional_seen_transitions_idx]
+
+            pre_states_from_trajectory = seen_states[:optional_seen_transitions_idx]
+            post_states_from_trajectory = seen_states[optional_seen_transitions_idx + 2:]
+
+            if self.is_optional_transition_is_seen(opt_seen_trans, pre_states_from_trajectory, post_states_from_trajectory
+                    , all_transitions_of_walk, _curr_walk):
+                seen_transitions.append(opt_seen_trans)
+        return seen_transitions
+
     def _exrect_transitions_from_walk(self,curr_walk,states,Ws):
         '''
         :param curr_walk:
@@ -708,8 +757,12 @@ class GibbsSampler() :
 
         for W,walk in zip(Ws,curr_walk) :
             for time in range(len(walk)-1) :
-                is_null_transition =  not ((time in W) and ((time + 1) in W))
-                transitions.update_with_none(walk[time],walk[time+1],value = 1,is_null = is_null_transition)
+                is_null_transition = not ((time in W) and ((time + 1) in W))
+                transitions.update_with_none(walk[time], walk[time+1], value = 1, is_null = is_null_transition)
+
+            seen_transitions = self.get_all_seen_transitions(W,walk)
+            transitions.update_extended_seen_transitions(seen_transitions)
+
         return transitions
 
     def __swipe_dict_key_value(self,dict):
