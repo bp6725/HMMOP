@@ -2,21 +2,11 @@ import pomegranate
 from pomegranate import *
 import numpy as np
 import who_cell.config as base_config
-import math
-import matplotlib.pyplot as plt
-from functools import partial
-import itertools
-import random
 import copy
 import pandas as pd
 import itertools
 from functools import reduce
-import networkx as nx
-import holoviews as hv
-from IPython.display import display, HTML,clear_output
 from scipy.stats import binom
-from numba import jit
-import numba
 from tqdm import tqdm
 from collections import Counter
 import random
@@ -26,10 +16,8 @@ from functools import lru_cache
 from functools import partial
 random.seed(10)
 from multiprocessing import Pool
-from functools import wraps
 from who_cell.models.utils import Utils
 from  itertools import chain
-from collections import defaultdict
 
 from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
 
