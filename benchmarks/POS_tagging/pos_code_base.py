@@ -18,7 +18,7 @@ class PosCodeBase() :
     def run_pos_experiment(test_set_words, start_probs, emms_probs, number_of_iters,
                            N, description, known_transitions, title, is_only_observed,
                            comper_transitions, comper_transitions_title, state_order_for_plot):
-        gs = GibbsSampler(2, 5, transition_sampling_profile="observed" if is_only_observed else 'all')
+        gs = GibbsSampler(2, 5,is_only_observed)
         sampled_transitions, ws, transitions, states_picked_by_w,all_alphas = gs.sample_known_emissions(test_set_words,
                                                                                              start_probs,
                                                                                              emms_probs,
