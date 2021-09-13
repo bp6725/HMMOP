@@ -101,21 +101,15 @@ class GibbsExperiment() :
                                                                                                            mutual_model_params_dict,simulator )
 
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
-            all_relvent_sampled_trajs_states),_ = \
+            all_relvent_sampled_trajs_states,known_w),_ = \
                 simulator.simulate_observations(pome_results["model"],combined_params,
-                                                pome_results['params_signature'],from_pre_sampled_traj = True)
+                                                pome_results['params_signature'] + "known_w_experiment"
+                                                ,from_pre_sampled_traj = True)
 
-            _cache_path = ''.join([f"{k}{v}" for k,v in combined_params.items()])
-            is_from_cache = skip_sampler and os.path.exists(_cache_path)
-            if is_from_cache :
-                with open(_cache_path,'rb') as f :
-                    result = pickle.load(f)
-            else :
-                result = GibbsExperiment.solve_return_results_mutual_model(combined_params,is_acyclic,
-                                    pome_results,all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
-                                    w_smapler_n_iter = combined_params['w_smapler_n_iter'])
-                with open(_cache_path,'wb') as f :
-                    pickle.dump(result,f)
+            result = GibbsExperiment.solve_return_results_mutual_model(combined_params,is_acyclic,
+                                pome_results,all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
+                                w_smapler_n_iter = combined_params['w_smapler_n_iter'],known_w=known_w)
+
             if result is None : continue
             #region update result param
             result['mutual_params'] = mutual_model_params_dict
@@ -146,7 +140,7 @@ class GibbsExperiment() :
     @staticmethod
     def solve_return_results_mutual_model(params,is_acyclic,pome_results,
                                           all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
-                                          w_smapler_n_iter = 100):
+                                          w_smapler_n_iter = 100,known_w = None):
         if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
             return None
         if ((params['is_few_observation_model'] == False) and (params['is_only_seen'] == "observed" or params['is_only_seen'] == "extended")):
@@ -157,8 +151,8 @@ class GibbsExperiment() :
         N = params['N'] if  params['is_few_observation_model'] else 2
         sampler = GibbsSampler(N, params['d'],transition_sampling_profile = transition_sampling_profile)
         all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-            sampler.sample(is_acyclic,all_relvent_observations, pome_results['start_probabilites'],
-                           mues_for_sampler,sigmas_for_sampler,params['N_itres'], w_smapler_n_iter=w_smapler_n_iter,
+            sampler.sample_known_W(is_acyclic,all_relvent_observations, pome_results['start_probabilites'],
+                           mues_for_sampler,sigmas_for_sampler,params['N_itres'],known_w, w_smapler_n_iter=w_smapler_n_iter,
                            is_mh=params["is_mh"])
 
         sampled_transitions_dict = all_sampled_transitions[-1]
