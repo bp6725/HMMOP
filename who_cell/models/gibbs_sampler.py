@@ -139,6 +139,12 @@ class GibbsSampler() :
                                                              curr_params =[curr_trans,curr_w,curr_walk,None,state_to_distrbution_param_mapping],
                                                              stage_name="transitions" if is_mh else "no_mh" ,
                                                              observations = all_relvent_observations)
+                curr_w,_ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
+                                                      state_to_distrbution_param_mapping,N,
+                                                      n_iters=w_smapler_n_iter,
+                                                      curr_params=[curr_trans, curr_w, curr_walk, None, state_to_distrbution_param_mapping],
+                                                      stage_name="w"  if is_mh else "no_mh",
+                                                      observations=all_relvent_observations)
 
                 curr_walk,_ = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N,
                                                          state_to_distrbution_param_mapping,start_probs,
