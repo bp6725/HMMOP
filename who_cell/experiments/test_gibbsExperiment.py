@@ -12,20 +12,20 @@ class TestGibbsExperiment(TestCase):
         model_defining_params_pre = ['N', "d", "n_states",'is_acyclic','sigma','bipartite']
         params_dict = {
             'is_acyclic': [True],
-            'known_mues' : [True],
-            "is_few_observation_model":[True,False],
-            "is_only_seen" : ["extended","all","observed"],
-            "bipartite" : [True],
-            "inner_outer_trans_probs_ratio":[5],
+            'known_mues': [True],
+            "is_few_observation_model": [True],
+            "is_only_seen": ['all', 'observed'],
             'N': [50],
-            'd': [5],
+            'd': [9],
+            "bipartite": [True, False],
+            "inner_outer_trans_probs_ratio": [50],
             'n_states': [10],
-            'sigma' : [0.1],
-            'number_of_smapled_traj': [20],
+            'sigma': [0.1],
+            'number_of_smapled_traj': [200],
             'p_prob_of_observation': [0.5],
-            'N_itres': [5],
-            "is_mh" : [False],
-            'w_smapler_n_iter': [20]}
+            'N_itres': [100],
+            'is_mh': [False],
+            'w_smapler_n_iter': [10]}
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)
 

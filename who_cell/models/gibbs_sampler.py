@@ -114,6 +114,8 @@ class GibbsSampler() :
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues,is_acyclic)
         curr_trans = self.build_initial_transitions(states,is_acyclic)
 
+        curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
+
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
         curr_walk,alpha= self.sample_walk_from_params(is_acyclic,all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
                                                  curr_w, curr_trans)
@@ -648,8 +650,9 @@ class GibbsSampler() :
 
     def __prob_obs_for_state(self,state,obs,state_to_distrbution_param_mapping,is_tuple):
         if is_tuple :
-            return pomegranate.distributions.NormalDistribution(state_to_distrbution_param_mapping[state][0],
+            prob = pomegranate.distributions.NormalDistribution(state_to_distrbution_param_mapping[state][0],
                                                             state_to_distrbution_param_mapping[state][1]).probability(obs)
+            return prob
         else :
             return state_to_distrbution_param_mapping[state][obs] if obs in state_to_distrbution_param_mapping[state] else 0
 
