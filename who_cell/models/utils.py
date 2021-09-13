@@ -2,6 +2,7 @@ from functools import reduce
 from functools import wraps
 import numpy as np
 import pomegranate
+import math
 
 
 class Utils() :
@@ -63,13 +64,21 @@ class Utils() :
         return sum(probs_per_traj)
 
     @staticmethod
+    def normpdf(x, mean, sd):
+        var = float(sd) ** 2
+        denom = (2 * math.pi * var) ** .5
+        num = math.exp(-(float(x) - float(mean)) ** 2 / (2 * var))
+        return num / denom
+
+    @staticmethod
     def __calc_probability_function_per_traj(traj, _trans, _w, _walk,
                                              curr_mu=None, known_emissions=None,is_known_emissions = True):
         if known_emissions is not None:
             if is_known_emissions :
                 emissions_prob = [known_emissions[_walk[__w]][traj[k]] for k,__w in enumerate(_w)]
             else :
-                emissions_prob = [pomegranate.NormalDistribution(known_emissions[_walk[__w]][0],known_emissions[_walk[__w]][1]).probability(traj[k]) for k, __w in enumerate(_w)]
+                emissions_prob = [Utils.normpdf(traj[k],known_emissions[_walk[__w]][0],known_emissions[_walk[__w]][1])
+                                  for k, __w in enumerate(_w)]
         elif curr_mu is not None:
             raise NotImplementedError("lazy you")
         transitions_prob = [(_trans[_f][_t] if _t in _trans[_f].keys() else 0) for _f, _t in zip(_walk, _walk[1:])]

@@ -367,9 +367,10 @@ class GibbsSampler() :
         if observation is None :
             return 1
         if type(params) is tuple or type(params) is list :
-            dist = pomegranate.NormalDistribution(params[0],params[1])
-            return dist.probability(observation)
+            dist = pomegranate.NormalDistribution()
+            return Utils.normpdf(observation,params[0],params[1])
         if type(params) is pomegranate.NormalDistribution :
+            raise Exception(" no need for pome model - move to Utils.normdf !")
             return params.probability(observation)
         if type(params) is dict :
             return params[observation] if observation in params.keys() else 0
@@ -579,8 +580,9 @@ class GibbsSampler() :
 
     def __prob_obs_for_state(self,state,obs,state_to_distrbution_param_mapping,is_tuple):
         if is_tuple :
-            return pomegranate.distributions.NormalDistribution(state_to_distrbution_param_mapping[state][0],
-                                                            state_to_distrbution_param_mapping[state][1]).probability(obs)
+            return Utils.normpdf(obs,
+                                 state_to_distrbution_param_mapping[state][0],
+                                 state_to_distrbution_param_mapping[state][1])
         else :
             return state_to_distrbution_param_mapping[state][obs] if obs in state_to_distrbution_param_mapping[state] else 0
 
