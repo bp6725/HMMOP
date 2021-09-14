@@ -367,7 +367,6 @@ class GibbsSampler() :
         if observation is None :
             return 1
         if type(params) is tuple or type(params) is list :
-            dist = pomegranate.NormalDistribution()
             return Utils.normpdf(observation,params[0],params[1])
         if type(params) is pomegranate.NormalDistribution :
             raise Exception(" no need for pome model - move to Utils.normdf !")
