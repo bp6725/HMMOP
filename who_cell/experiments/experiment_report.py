@@ -338,7 +338,7 @@ class ExperimentReport() :
             all_measure_results[str(model_name)] = single_model_results
         return all_measure_results
 
-    def _plot_transitions_compare(self,first_trans,second_trans,title):
+    def _plot_transitions_compare(self,first_trans,second_trans,title,first_title,second_title):
         if type(first_trans) is not dict :
             first_trans = self._extrect_states_transitions_dict_from_pome_model(first_trans)[0]
             first_trans = {str(k): {str(kk): vv for kk, vv in v.items()} for k, v in first_trans.items()}
@@ -359,8 +359,8 @@ class ExperimentReport() :
         first_trans_df_stack = first_trans_df.stack().to_frame()
         second_trans_df_stack = second_trans_df.stack().to_frame()
 
-        first_trans_df = first_trans_df.sort_index().sort_index(1)
-        second_trans_df = second_trans_df.sort_index().sort_index(1)
+        # first_trans_df = first_trans_df.sort_index().sort_index(1)
+        # second_trans_df = second_trans_df.sort_index().sort_index(1)
 
         mutual_df_stack = first_trans_df_stack.merge(second_trans_df_stack, left_index=True, right_index=True,
                                                      how='outer').fillna(0)
@@ -370,16 +370,22 @@ class ExperimentReport() :
 
         sns.heatmap(mutual_df_stack['0_x'].unstack().fillna(0),ax=subs[0])
         sns.heatmap(mutual_df_stack['0_y'].unstack().fillna(0),ax=subs[1])
+
+        subs[0].set_title(first_title)
+        subs[1].set_title(second_title)
+
         plt.show()
 
         print('stop')
 
-    def _plot_transitions_compare_over_all_permuts(self,all_results) :
+    def _plot_transitions_compare_over_all_permuts(self,all_results,params_to_plot) :
         for single_model_permuts in all_results.values():
             for unique_permut in single_model_permuts.values():
+                combined_params = {**unique_permut['mutual_params'],**unique_permut['hyper_params']}
+                _to_plot = {k:v for k,v in combined_params if k in params_to_plot}
                 self._plot_transitions_compare(unique_permut['original_pome_model'],
-                                           unique_permut['all_transitions'][-1],
-                                               str({**unique_permut['mutual_params'],**unique_permut['hyper_params']}))
+                                               unique_permut['all_transitions'][-1],str(_to_plot),
+                                               "original","predicted")
                
     def build_report_from_multiparam_exp_results(self,all_results,params_titles = None):
         all_measure_results = self.calculate_measure_over_all_results(all_results)
