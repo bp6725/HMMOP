@@ -22,10 +22,13 @@ from  itertools import chain
 from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
 
 class GibbsSampler() :
-    def __init__(self,length_of_chain,number_of_states_in_time = None,transition_sampling_profile = 'all'):
+    def __init__(self,length_of_chain,number_of_states_in_time = None,
+                 transition_sampling_profile = 'all', multi_process = True):
         self.N = length_of_chain
 
         self.transition_sampling_profile = transition_sampling_profile
+
+        self.multi_process = multi_process
 
     # region Public
 
@@ -314,21 +317,27 @@ class GibbsSampler() :
         return self.choice(possible_options_for_dim, np.array(probs_of_opts)/sum(probs_of_opts))
 
     def _calc_alpha(self,_old_dim_vector, _curr_dim_vector, y_from_x_probs) :
-        old_prob = reduce(lambda x, y: x * y, [y_from_x_probs[(k, w)] for k, w in enumerate(_old_dim_vector)])
-        curr_prob = reduce(lambda x, y: x * y, [y_from_x_probs[(k, w)] for k, w in enumerate(_curr_dim_vector)])
+        old_prob = 1
+        k = 0
+        for w in _old_dim_vector:
+            old_prob = old_prob * y_from_x_probs[(k, w)]
+            k = k + 1
 
-        if curr_prob == 0 :
-            if old_prob == 0 :
+        curr_prob = 1
+        k = 0
+        for w in _curr_dim_vector:
+            curr_prob = curr_prob * y_from_x_probs[(k, w)]
+            k = k + 1
+
+        if curr_prob == 0:
+            if old_prob == 0:
                 return 1
-            else :
+            else:
                 return 0
         elif old_prob == 0:
             return 1
 
         return curr_prob / old_prob
-
-
-        return None
 
     def sample_msf_using_sim(self,k,N, n_iter,y_from_x_probs):
         initial_vector = sorted(random.sample(range(N), k))
@@ -617,8 +626,12 @@ class GibbsSampler() :
 
         _partial_sample_ws_from_params = partial(self._sample_ws_from_params,state_to_distrbution_param_mapping,n_iters,N)
 
-        with Pool(base_config.n_cores) as p :
-            result_per_traj = p.map(_partial_sample_ws_from_params,samples_data)
+        if self.multi_process :
+            with Pool(base_config.n_cores) as p :
+                result_per_traj = p.map(_partial_sample_ws_from_params,samples_data)
+        else :
+            result_per_traj = list(map(_partial_sample_ws_from_params, samples_data))
+
         return result_per_traj
 
     def _sample_walk_from_params(self,is_acyclic, N, state_to_distrbution_param_mapping,start_prob,  curr_trans,samples_data):
@@ -645,8 +658,11 @@ class GibbsSampler() :
 
         _partial_sample_walk_from_params = partial(self._sample_walk_from_params,is_acyclic, N,
                                                    state_to_distrbution_param_mapping,start_prob,  curr_trans)
-        with Pool(base_config.n_cores) as p:
-            walks = p.map(_partial_sample_walk_from_params, samples_data)
+        if self.multi_process :
+            with Pool(base_config.n_cores) as p:
+                walks = p.map(_partial_sample_walk_from_params, samples_data)
+        else :
+            walks = list(map(_partial_sample_walk_from_params, samples_data))
 
         return walks
 
@@ -843,8 +859,11 @@ class GibbsSampler() :
         samples_data = [(traj,curr_w[traj_ind],curr_walk[traj_ind]) for traj_ind,traj in enumerate(all_relvent_observations)]
         _partial__exrect_samples_from_walk = partial(self._inner_exrect_samples_from_walk, curr_mus, sigmas, states)
 
-        with Pool(base_config.n_cores) as p :
-            all_initial_observations_sum = p.map(_partial__exrect_samples_from_walk,samples_data)
+        if self.multi_process :
+            with Pool(base_config.n_cores) as p :
+                all_initial_observations_sum = p.map(_partial__exrect_samples_from_walk,samples_data)
+        else :
+            all_initial_observations_sum = list(map(_partial__exrect_samples_from_walk, samples_data))
 
         initial_observations_sum = self.__agg_list_of_dict(all_initial_observations_sum)
 
@@ -872,8 +891,11 @@ class GibbsSampler() :
         samples_data = [(traj,curr_w[traj_ind],curr_walk[traj_ind]) for traj_ind,traj in enumerate(all_relvent_observations)]
         _partial__exrect_samples_from_walk = partial(self._inner_exrect_samples_from_walk_known_emmisions, known_emissions, states)
 
-        with Pool(base_config.n_cores) as p :
-            all_initial_observations_sum = p.map(_partial__exrect_samples_from_walk,samples_data)
+        if self.multi_process :
+            with Pool(base_config.n_cores) as p :
+                all_initial_observations_sum = p.map(_partial__exrect_samples_from_walk,samples_data)
+        else :
+            all_initial_observations_sum = list(map(_partial__exrect_samples_from_walk, samples_data))
 
         observations_sum = self.__agg_list_of_dict(all_initial_observations_sum)
 
