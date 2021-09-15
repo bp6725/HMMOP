@@ -141,7 +141,7 @@ class GibbsExperiment() :
 
         all_models_results = GibbsExperiment.run_multi_params_and_return_results(params_dict,model_defining_params_pre,skip_sampler)
 
-        er.build_report_from_multiparam_exp_results(all_models_results)
+        # er.build_report_from_multiparam_exp_results(all_models_results)
 
     @staticmethod
     def solve_return_results_mutual_model(params,is_acyclic,pome_results,

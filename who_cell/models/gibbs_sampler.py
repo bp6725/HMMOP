@@ -317,6 +317,9 @@ class GibbsSampler() :
         return self.choice(possible_options_for_dim, np.array(probs_of_opts)/sum(probs_of_opts))
 
     def _calc_alpha(self,_old_dim_vector, _curr_dim_vector, y_from_x_probs) :
+        if _old_dim_vector == _curr_dim_vector:
+            return 1
+
         old_prob = 1
         k = 0
         for w in _old_dim_vector:
