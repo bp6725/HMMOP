@@ -71,6 +71,13 @@ class Utils() :
         return num / denom
 
     @staticmethod
+    def multiply(vec):
+        x = 1
+        for val in vec:
+            x = x * val
+        return x
+
+    @staticmethod
     def __calc_probability_function_per_traj(traj, _trans, _w, _walk,
                                              curr_mu=None, known_emissions=None,is_known_emissions = True):
         if known_emissions is not None:
