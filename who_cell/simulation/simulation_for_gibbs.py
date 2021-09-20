@@ -109,7 +109,7 @@ class Simulator_for_Gibbs():
 
         return all_relvent_observations, all_ws
 
-    @Infras.storage_cache
+    # @Infras.storage_cache
     def simulate_observations(self,pome_model,mutual_model_params_dict,params_signature,from_pre_sampled_traj = False):
         p_prob_of_observation = mutual_model_params_dict['p_prob_of_observation']
         number_of_smapled_traj = mutual_model_params_dict['number_of_smapled_traj']
@@ -132,8 +132,12 @@ class Simulator_for_Gibbs():
         else :
             all_full_sampled_trajs,all_full_sampled_trajs_states = self._sample_N_traj_from_pome_model(pome_model,
                                                                                                        number_of_smapled_traj,N)
-
-        all_relvent_observations,all_ws = Simulator_for_Gibbs.sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs)
+        if not mutual_model_params_dict['non_cons_sim'] :
+            all_relvent_observations,all_ws = Simulator_for_Gibbs.sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs)
+        else :
+            _idx_to_smaple = [np.cumsum(np.random.randint(2,4,N)) for i in range(len(all_full_sampled_trajs))]
+            all_relvent_observations = [[traj[w] for w in ws if w < N] for traj,ws in zip(all_full_sampled_trajs,_idx_to_smaple)]
+            all_ws = [[w for w in ws if w < N] for traj,ws in zip(all_full_sampled_trajs,_idx_to_smaple)]
         all_relvent_sampled_trajs_states = list(map(lambda x: [x[0][i] for i in x[1]], zip(all_full_sampled_trajs_states, all_ws)))
         self.known_Ws = all_ws
 

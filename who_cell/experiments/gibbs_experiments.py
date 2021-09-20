@@ -101,7 +101,7 @@ class GibbsExperiment() :
                                                                                                            mutual_model_params_dict,simulator )
 
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
-            all_relvent_sampled_trajs_states,known_w),_ = \
+            all_relvent_sampled_trajs_states,known_w) = \
                 simulator.simulate_observations(pome_results["model"],combined_params,
                                                 pome_results['params_signature'] + "known_w_experiment"
                                                 ,from_pre_sampled_traj = True)

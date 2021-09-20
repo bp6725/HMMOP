@@ -30,7 +30,7 @@ class GibbsSampler() :
     # region Public
 
     def sample(self,is_acyclic, all_relvent_observations, start_probs,
-               known_mues,sigmas, Ng_iters, w_smapler_n_iter = 20,N=None,is_mh = False):
+               known_mues,sigmas, Ng_iters, w_smapler_n_iter = 100,N=None,is_mh = False):
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start','end']))
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
@@ -102,7 +102,7 @@ class GibbsSampler() :
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
     def sample_known_W(self,is_acyclic, all_relvent_observations, start_probs,
-               known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 20,N=None,is_mh = False):
+               known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False):
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start','end']))
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,

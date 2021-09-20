@@ -14,18 +14,19 @@ class TestGibbsExperiment(TestCase):
             'is_acyclic': [True],
             'known_mues': [True],
             "is_few_observation_model": [True],
-            "is_only_seen": ['all', 'observed'],
+            "is_only_seen": ['all'],
             'N': [50],
             'd': [9],
-            "bipartite": [True, False],
+            "non_cons_sim":[True,False],
+            "bipartite": [ False],
             "inner_outer_trans_probs_ratio": [50],
             'n_states': [10],
             'sigma': [0.1],
-            'number_of_smapled_traj': [200],
-            'p_prob_of_observation': [0.5],
+            'number_of_smapled_traj': [2000],
+            'p_prob_of_observation': [0.1],
             'N_itres': [100],
             'is_mh': [False],
-            'w_smapler_n_iter': [10]}
+            'w_smapler_n_iter': [100]}
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)
 
