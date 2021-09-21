@@ -106,6 +106,7 @@ class GibbsSampler() :
 
     def sample_known_W(self,is_acyclic, all_relvent_observations, start_probs,
                known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False):
+        print("start known W")
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start','end']))
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
@@ -117,7 +118,7 @@ class GibbsSampler() :
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues,is_acyclic)
         curr_trans = self.build_initial_transitions(states,is_acyclic)
 
-        curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
+        # curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
 
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
         curr_walk,alpha= self.sample_walk_from_params(is_acyclic,all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
@@ -144,12 +145,12 @@ class GibbsSampler() :
                                                              curr_params =[curr_trans,curr_w,curr_walk,None,state_to_distrbution_param_mapping],
                                                              stage_name="transitions" if is_mh else "no_mh" ,
                                                              observations = all_relvent_observations)
-                curr_w,_ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
-                                                      state_to_distrbution_param_mapping,N,
-                                                      n_iters=w_smapler_n_iter,
-                                                      curr_params=[curr_trans, curr_w, curr_walk, None, state_to_distrbution_param_mapping],
-                                                      stage_name="w"  if is_mh else "no_mh",
-                                                      observations=all_relvent_observations)
+                # curr_w,_ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
+                #                                       state_to_distrbution_param_mapping,N,
+                #                                       n_iters=w_smapler_n_iter,
+                #                                       curr_params=[curr_trans, curr_w, curr_walk, None, state_to_distrbution_param_mapping],
+                #                                       stage_name="w"  if is_mh else "no_mh",
+                #                                       observations=all_relvent_observations)
 
                 curr_walk,_ = self.sample_walk_from_params(is_acyclic,all_relvent_observations,N,
                                                          state_to_distrbution_param_mapping,start_probs,
