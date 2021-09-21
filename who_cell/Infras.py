@@ -27,7 +27,7 @@ class Infras() :
             params = Infras._return_cache_relevent_params(func,*args, **kwargs)
 
             params_signature = '_'.join(params)
-            params_signature = params_signature.replace(' ', '').replace('.', '')
+            params_signature = params_signature.replace(' ', '').replace('.', '').replace('\n','')
             cache_path = os.path.join(r"../../cache",
                                       params_signature + ".pkl")
 

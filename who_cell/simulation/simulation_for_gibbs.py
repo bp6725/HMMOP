@@ -136,8 +136,8 @@ class Simulator_for_Gibbs():
             all_relvent_observations,all_ws = Simulator_for_Gibbs.sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs)
         else :
             _idx_to_smaple = [np.cumsum(np.random.randint(2,4,N)) for i in range(len(all_full_sampled_trajs))]
-            all_relvent_observations = [[traj[w] for w in ws if w < N] for traj,ws in zip(all_full_sampled_trajs,_idx_to_smaple)]
-            all_ws = [[w for w in ws if w < N] for traj,ws in zip(all_full_sampled_trajs,_idx_to_smaple)]
+            all_relvent_observations = [[traj[w] for w in ws if w < len(traj)] for traj,ws in zip(all_full_sampled_trajs,_idx_to_smaple)]
+            all_ws = [[w for w in ws if w < len(traj)] for traj,ws in zip(all_full_sampled_trajs,_idx_to_smaple)]
         all_relvent_sampled_trajs_states = list(map(lambda x: [x[0][i] for i in x[1]], zip(all_full_sampled_trajs_states, all_ws)))
         self.known_Ws = all_ws
 
@@ -433,23 +433,36 @@ class Simulator_for_Gibbs():
         n_states = len(mues)
         all_distrbutions_params_mapping = {str((mu, sigmas[i])): (mu, sigmas[i]) for i, mu in enumerate(mues)}
 
-        group_a = random.sample(all_distrbutions_params_mapping.keys(), int(n_states / 2))
-        group_b = set(all_distrbutions_params_mapping) - set(group_a)
+        # build groups and state -> group mapping
+        groups = [list(all_distrbutions_params_mapping.keys())[i:i + d] for i in
+                  range(0, len(all_distrbutions_params_mapping), d)]
+        state_to_group = {}
+        for i, group_list in enumerate(groups):
+            for state in group_list:
+                state_to_group[state] = i
 
+        # draw transitions probability
         sparse_transition_matrix = {state: {} for state in all_distrbutions_params_mapping.keys()}
         sparse_transition_matrix['start'] = {}
+
         for s1, s2 in itertools.product(all_distrbutions_params_mapping, all_distrbutions_params_mapping):
-            if ((s1 in group_a) and (s2 in group_a)) or ((s1 in group_b) and (s2 in group_b)):
-                _trans_prob = np.random.rand()
-            else:
+            if state_to_group[s1] == state_to_group[s2]:
+                _trans_prob = np.random.rand() / inner_outer_trans_probs_ratio
+            elif (state_to_group[s2] - state_to_group[s1]) == 1:
                 _trans_prob = inner_outer_trans_probs_ratio * np.random.rand()
+            elif (state_to_group[s1] == (len(groups) - 1)) and (state_to_group[s2] == 0):
+                _trans_prob = inner_outer_trans_probs_ratio * np.random.rand()
+            elif (state_to_group[s2] - state_to_group[s1]) != 1:
+                _trans_prob = np.random.rand()
 
             sparse_transition_matrix[s1][s2] = _trans_prob
 
-        for s in group_a:
-            sparse_transition_matrix['start'][s] = 1
+            if state_to_group[s1] == 0:
+                sparse_transition_matrix['start'][s1] = 1
+            else :
+                sparse_transition_matrix['start'][s1] = 0
 
-        return all_distrbutions_params_mapping, sparse_transition_matrix, \
-               {s:(1/len(group_a) if s in group_a else 0) for s in all_distrbutions_params_mapping.keys()}
+        sparse_transition_matrix = self._normalize_transition_matrix(sparse_transition_matrix)
 
+        return  all_distrbutions_params_mapping , sparse_transition_matrix, sparse_transition_matrix['start']
 
