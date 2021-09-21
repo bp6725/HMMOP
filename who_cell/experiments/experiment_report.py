@@ -382,7 +382,7 @@ class ExperimentReport() :
         for single_model_permuts in all_results.values():
             for unique_permut in single_model_permuts.values():
                 combined_params = {**unique_permut['mutual_params'],**unique_permut['hyper_params']}
-                _to_plot = {k:v for k,v in combined_params if k in params_to_plot}
+                _to_plot = {k:v for k,v in combined_params.items() if k in params_to_plot}
                 self._plot_transitions_compare(unique_permut['original_pome_model'],
                                                unique_permut['all_transitions'][-1],str(_to_plot),
                                                "original","predicted")
