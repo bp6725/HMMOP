@@ -370,7 +370,8 @@ class GibbsSampler() :
             raise NotImplementedError()
             # return partial(self._rec_msf_creator, y_from_x_probs, not_y_from_x_probs)
 
-    def choice(self,options, probs):
+    @staticmethod
+    def choice(options, probs):
         x = np.random.rand()
         cum = 0
         for i, p in enumerate(probs):
@@ -448,21 +449,22 @@ class GibbsSampler() :
         return states
 
     @staticmethod
-    def __probability_from_dist_params(observation,params) :
-        if observation is None :
+    def __probability_from_dist_params(observation,params,is_transitions_dict) :
+        if observation is None:
             return 1
-        if type(params) is tuple or type(params) is list :
-            return Utils.normpdf(observation,params[0],params[1])
-        if type(params) is pomegranate.NormalDistribution :
-            raise Exception(" no need for pome model - move to Utils.normdf !")
-            return params.probability(observation)
-        if type(params) is dict :
+        if not is_transitions_dict:
+            return Utils.normpdf(observation, params[0], params[1])
+        else:
             return params[observation] if observation in params.keys() else 0
 
     @staticmethod
     def _build_emmisions_for_sample(is_acyclic,sample, w, state_to_distrbution_param_mapping,N,normalized_emm =  True,
                                     is_known_emm = False):
         states = list(state_to_distrbution_param_mapping.keys())
+
+        __tmp_param = state_to_distrbution_param_mapping[states[0]]
+        is_transitions_dict = not (type(__tmp_param) is tuple or type(__tmp_param) is list)
+
         emmisions = {}
         ind_obs = 0
         for time_ind in range(N):
@@ -477,7 +479,9 @@ class GibbsSampler() :
                 if (state in ['start','end']) :
                     _emm = 0
                 else :
-                    _emm = GibbsSampler.__probability_from_dist_params(observation, state_to_distrbution_param_mapping[state])
+                    _emm = GibbsSampler.__probability_from_dist_params(observation,
+                                                                       state_to_distrbution_param_mapping[state],
+                                                                       is_transitions_dict)
                 #if not cyclic case : if the start is out of time is zero
                 if (not is_acyclic) and (state[1] != time_ind) :
                     _emm = 0
@@ -526,6 +530,14 @@ class GibbsSampler() :
         return trans_prob[from_state][to_state]
 
     @staticmethod
+    def _flat_sample_trans_matrix(trans_prob, from_state, to_state, is_acyclic):
+        if ((not is_acyclic) and ((to_state[1] - from_state[1]) != 1)): return 0
+        if from_state not in trans_prob.keys(): return 0
+        if to_state not in trans_prob[from_state].keys(): return 0
+
+        return trans_prob[from_state][to_state]
+
+    @staticmethod
     def __sample_single_time(is_acyclic,prev_state, walk, fwd, trans_prob, n) :
         if n == -1 :
             return walk
@@ -537,7 +549,7 @@ class GibbsSampler() :
             if ((not is_acyclic) and (state[1] != n)) :
                 continue
 
-            prob_for_sample = prob * GibbsSampler._sample_trans_matrix(trans_prob, state, prev_state,is_acyclic)
+            prob_for_sample = prob * GibbsSampler._flat_sample_trans_matrix(trans_prob, state, prev_state,is_acyclic)
 
             states_of_time.append(state)
             prob_of_states_of_time.append(prob_for_sample)
@@ -546,8 +558,7 @@ class GibbsSampler() :
         prob_of_states_of_time = prob_of_states_of_time if sum(prob_of_states_of_time) != 0 else [1 for i in prob_of_states_of_time]
 
         _sum = sum(prob_of_states_of_time)
-        sampled_state_inde = np.random.choice(range(len(states_of_time)),
-                                              p = [p/_sum for p in prob_of_states_of_time] )
+        sampled_state_inde = GibbsSampler.choice(range(len(states_of_time)),[p/_sum for p in prob_of_states_of_time] )
         sampled_state = states_of_time[sampled_state_inde]
 
         walk.append(sampled_state)
@@ -571,7 +582,9 @@ class GibbsSampler() :
         # print(f"{prob_of_states_of_time}:{sum(prob_of_states_of_time)}")
         # print(f"{list((np.array(prob_of_states_of_time)/sum(prob_of_states_of_time)))}")
         # print('---')
-        sampled_state_inde = np.random.choice(range(len(states_of_time)), p = list((np.array(prob_of_states_of_time)/sum(prob_of_states_of_time))))
+        _sum_prob_of_states_of_time = sum(prob_of_states_of_time)
+        sampled_state_inde = GibbsSampler.choice(range(len(states_of_time)),
+                                    [p / _sum_prob_of_states_of_time for p in prob_of_states_of_time])
         sampled_state = states_of_time[sampled_state_inde]
 
         walk.append(sampled_state)
@@ -601,7 +614,7 @@ class GibbsSampler() :
                         prev_f_sum = start_prob[str(st)]
                 else:
                     prev_f_sum = 0
-                    prev_f_sum = sum([f_prev[k] * GibbsSampler._sample_trans_matrix(trans_prob, k, st,is_acyclic) for k in states if f_prev[k] !=0])
+                    prev_f_sum = sum([f_prev[k] * GibbsSampler._flat_sample_trans_matrix(trans_prob, k, st,is_acyclic) for k in states if f_prev[k] !=0])
 
                 if emm_prob is not None :
                     # F-B case
@@ -720,8 +733,11 @@ class GibbsSampler() :
 
         emmisions = GibbsSampler._build_emmisions_for_sample(is_acyclic, sample,
                                                      _curr_ws, state_to_distrbution_param_mapping, seq_length)
+
+        flat_trans_prob = {(_f, _t): self._sample_trans_matrix(curr_trans, _f, _t, True) for _f, _t in
+                           itertools.product(curr_trans.keys(), curr_trans.keys())}
         posterior = self._fwd_bkw(is_acyclic, state_to_distrbution_param_mapping.keys(),
-                                  start_prob, curr_trans, emmisions, seq_length)
+                                  start_prob, flat_trans_prob, emmisions, seq_length)
         return posterior
 
     @Utils.update_based_on_alpha
