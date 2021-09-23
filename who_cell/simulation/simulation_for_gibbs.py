@@ -392,10 +392,16 @@ class Simulator_for_Gibbs():
                     params_signature = \
                     self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
             else:
-                (state_to_distrbution_param_mapping, transition_matrix_sparse, \
-                 start_probabilites), params_signature = self.build_bipartite_template_model_parameters(N, d, mues,
+                if is_bipartite == True :
+                    (state_to_distrbution_param_mapping, transition_matrix_sparse, \
+                     start_probabilites), params_signature = self.build_bipartite_template_model_parameters(N, d, mues,
                                                                                                         sigmas,
                                                                                                         inner_outer_trans_probs_ratio)
+                if is_bipartite == "DAG" :
+                    (state_to_distrbution_param_mapping, transition_matrix_sparse, \
+                     start_probabilites), params_signature = self.build_dag_template_model_parameters(N, d, mues,
+                                                                                                            sigmas,
+                                                                                                            inner_outer_trans_probs_ratio)
 
             #TODO : this will help us when we will try to build acyclic network with complex dynamic - with some kind of temporal direction
             #first we start with building the new transitions matrix - only unique states
@@ -465,4 +471,31 @@ class Simulator_for_Gibbs():
         sparse_transition_matrix = self._normalize_transition_matrix(sparse_transition_matrix)
 
         return  all_distrbutions_params_mapping , sparse_transition_matrix, sparse_transition_matrix['start']
+
+    @Infras.storage_cache
+    def build_dag_template_model_parameters(self, N, d, mues, sigmas,inner_outer_trans_probs_ratio):
+        all_distrbutions_params_mapping = {str((mu, sigmas[i])): (mu, sigmas[i]) for i, mu in enumerate(mues)}
+        state_to_order = {state: i for i, state in enumerate(all_distrbutions_params_mapping.keys())}
+
+        sparse_transitions_matrix = {}
+
+        for s_from, s_from_order in state_to_order.items():
+            _from_transitions = {}
+            for s_to, s_to_order in state_to_order.items():
+                if s_to_order > s_from_order:
+                    _transition = np.random.rand() * inner_outer_trans_probs_ratio
+                else:
+                    _transition = np.random.rand()
+
+                _from_transitions[s_to] = _transition
+            sparse_transitions_matrix[s_from] = _from_transitions
+
+        start_probs = {}
+        for s_from, s_from_order in state_to_order.items():
+            start_probs[s_from] = 1 if s_from_order < 3 else 0
+        sparse_transitions_matrix['start'] = start_probs
+
+        sparse_transition_matrix = self._normalize_transition_matrix(sparse_transitions_matrix)
+
+        return all_distrbutions_params_mapping, sparse_transition_matrix, sparse_transition_matrix['start']
 
