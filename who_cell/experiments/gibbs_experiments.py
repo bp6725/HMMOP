@@ -63,9 +63,8 @@ class GibbsExperiment() :
         else:
             max_number_of_sampled_traj = mutual_model_params_dict['number_of_smapled_traj']
 
-        is_acyclic = mutual_model_params_dict['is_acyclic']
 
-        return hyper_params_sets, max_number_of_sampled_traj, is_acyclic
+        return hyper_params_sets, max_number_of_sampled_traj
 
     @staticmethod
     def _return_hyper_params_set(hyper_param_set, mutual_model_params_dict, simulator) :
@@ -80,8 +79,8 @@ class GibbsExperiment() :
     def run_multi_params_mutual_model_and_return_results(mutual_model_params_dict, hyper_params_dict,skip_sampler):
         all_results_of_model = {}
 
-        hyper_params_sets, max_number_of_sampled_traj,\
-        is_acyclic = GibbsExperiment._return_params_sets(mutual_model_params_dict,hyper_params_dict)
+        hyper_params_sets, max_number_of_sampled_traj= GibbsExperiment._return_params_sets(mutual_model_params_dict,
+                                                                                           hyper_params_dict)
 
         # simulate
         simulator = Simulator_for_Gibbs(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
@@ -90,7 +89,7 @@ class GibbsExperiment() :
                                         sigma=mutual_model_params_dict['sigma']) # we need max_number_of_sampled_traj to know how much traj to pre sample so the traj will be mutual
 
         pome_results = simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
-                                       simulator.mues, simulator.sigmas,is_acyclic,
+                                       simulator.mues, simulator.sigmas,
                                        is_bipartite = mutual_model_params_dict['bipartite'],
                                        inner_outer_trans_probs_ratio = mutual_model_params_dict['inner_outer_trans_probs_ratio'])
 
@@ -106,7 +105,7 @@ class GibbsExperiment() :
                                                 pome_results['params_signature'] + "known_w_experiment"
                                                 ,from_pre_sampled_traj = True)
 
-            result = GibbsExperiment.solve_return_results_mutual_model(combined_params,is_acyclic,
+            result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
                                 pome_results,all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                 w_smapler_n_iter = combined_params['w_smapler_n_iter'],known_w=known_w)
 
@@ -122,7 +121,6 @@ class GibbsExperiment() :
             result["original_pome_model"] =  pome_results["model"]
             result["state_to_distrbution_mapping"] =  pome_results["state_to_distrbution_mapping"]
             result['start_probabilites']= pome_results['start_probabilites']
-            result['is_acyclic'] = is_acyclic
             #endregion
 
             all_results_of_model[exp_idx] = result
@@ -138,7 +136,7 @@ class GibbsExperiment() :
         # er.build_report_from_multiparam_exp_results(all_models_results)
 
     @staticmethod
-    def solve_return_results_mutual_model(params,is_acyclic,pome_results,
+    def solve_return_results_mutual_model(params,pome_results,
                                           all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                           w_smapler_n_iter = 100,known_w = None):
         if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
@@ -151,7 +149,7 @@ class GibbsExperiment() :
         N = params['N'] if  params['is_few_observation_model'] else 2
         sampler = GibbsSampler(N, params['d'],transition_sampling_profile = transition_sampling_profile)
         all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-            sampler.sample_known_W(is_acyclic,all_relvent_observations, pome_results['start_probabilites'],
+            sampler.sample_known_W(all_relvent_observations, pome_results['start_probabilites'],
                            mues_for_sampler,sigmas_for_sampler,params['N_itres'],known_w, w_smapler_n_iter=w_smapler_n_iter,
                            is_mh=params["is_mh"])
 

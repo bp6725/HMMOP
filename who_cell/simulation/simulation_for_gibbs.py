@@ -371,7 +371,7 @@ class Simulator_for_Gibbs():
             normalized_transition_matrix_sparse[_from] = {_to: (val / _sum) for _to, val in to.items()}
         return normalized_transition_matrix_sparse
 
-    def build_pome_model(self,N, d, mues, sigmas,is_acyclic = True,is_bipartite = False,inner_outer_trans_probs_ratio = 0):
+    def build_pome_model(self,N, d, mues, sigmas,is_bipartite = False,inner_outer_trans_probs_ratio = 0):
         '''
 
         :param N:
@@ -382,36 +382,22 @@ class Simulator_for_Gibbs():
         :return:
         '''
 
-        if not is_acyclic:
-            (state_to_distrbution_param_mapping, transition_matrix_sparse,\
-            start_probabilites), params_signature = \
-                self.build_template_model_parameters(N,d,mues,sigmas)
-        else :
-            if not is_bipartite:
-                (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
-                    params_signature = \
-                    self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
-            else:
-                if is_bipartite == True :
-                    (state_to_distrbution_param_mapping, transition_matrix_sparse, \
-                     start_probabilites), params_signature = self.build_bipartite_template_model_parameters(N, d, mues,
+
+        if not is_bipartite:
+            (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
+                params_signature = \
+                self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
+        else:
+            if is_bipartite == True :
+                (state_to_distrbution_param_mapping, transition_matrix_sparse, \
+                 start_probabilites), params_signature = self.build_bipartite_template_model_parameters(N, d, mues,
+                                                                                                    sigmas,
+                                                                                                    inner_outer_trans_probs_ratio)
+            if is_bipartite == "DAG" :
+                (state_to_distrbution_param_mapping, transition_matrix_sparse, \
+                 start_probabilites), params_signature = self.build_dag_template_model_parameters(N, d, mues,
                                                                                                         sigmas,
                                                                                                         inner_outer_trans_probs_ratio)
-                if is_bipartite == "DAG" :
-                    (state_to_distrbution_param_mapping, transition_matrix_sparse, \
-                     start_probabilites), params_signature = self.build_dag_template_model_parameters(N, d, mues,
-                                                                                                            sigmas,
-                                                                                                            inner_outer_trans_probs_ratio)
-
-            #TODO : this will help us when we will try to build acyclic network with complex dynamic - with some kind of temporal direction
-            #first we start with building the new transitions matrix - only unique states
-            # transition_matrix_sparse, state_to_distrbution_param_mapping = self._merge_to_cyclic_chain(state_to_distrbution_param_mapping,
-            #                                                        transition_matrix_sparse)
-            # #now - the  "end" state is missplaced. so we remove it from the existing transitions
-            # transition_matrix_sparse = self.__remove_transitions_to_end(transition_matrix_sparse)
-            #
-            # # after removing "end" - we calculate end from the new transitions matrix
-            # end_states = self.__extrect_end_states(transition_matrix_sparse)
 
         transition_matrix_sparse = self._normalize_transition_matrix(transition_matrix_sparse)
 
