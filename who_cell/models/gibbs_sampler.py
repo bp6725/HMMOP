@@ -531,11 +531,7 @@ class GibbsSampler() :
 
     @staticmethod
     def _flat_sample_trans_matrix(trans_prob, from_state, to_state, is_acyclic):
-        if ((not is_acyclic) and ((to_state[1] - from_state[1]) != 1)): return 0
-        if from_state not in trans_prob.keys(): return 0
-        if to_state not in trans_prob[from_state].keys(): return 0
-
-        return trans_prob[from_state][to_state]
+        return trans_prob[(from_state,to_state)]
 
     @staticmethod
     def __sample_single_time(is_acyclic,prev_state, walk, fwd, trans_prob, n) :
