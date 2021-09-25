@@ -63,9 +63,8 @@ class GibbsExperiment() :
         else:
             max_number_of_sampled_traj = mutual_model_params_dict['number_of_smapled_traj']
 
-        is_acyclic = mutual_model_params_dict['is_acyclic']
 
-        return hyper_params_sets, max_number_of_sampled_traj, is_acyclic
+        return hyper_params_sets, max_number_of_sampled_traj
 
     @staticmethod
     def _return_hyper_params_set(hyper_param_set, mutual_model_params_dict, simulator) :
@@ -80,8 +79,8 @@ class GibbsExperiment() :
     def run_multi_params_mutual_model_and_return_results(mutual_model_params_dict, hyper_params_dict,skip_sampler):
         all_results_of_model = {}
 
-        hyper_params_sets, max_number_of_sampled_traj,\
-        is_acyclic = GibbsExperiment._return_params_sets(mutual_model_params_dict,hyper_params_dict)
+        hyper_params_sets, max_number_of_sampled_traj= GibbsExperiment._return_params_sets(mutual_model_params_dict,
+                                                                                           hyper_params_dict)
 
         # simulate
         simulator = Simulator_for_Gibbs(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
@@ -90,7 +89,7 @@ class GibbsExperiment() :
                                         sigma=mutual_model_params_dict['sigma']) # we need max_number_of_sampled_traj to know how much traj to pre sample so the traj will be mutual
 
         pome_results = simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
-                                       simulator.mues, simulator.sigmas,is_acyclic,
+                                       simulator.mues, simulator.sigmas,
                                        is_bipartite = mutual_model_params_dict['bipartite'],
                                        inner_outer_trans_probs_ratio = mutual_model_params_dict['inner_outer_trans_probs_ratio'])
 
@@ -111,7 +110,7 @@ class GibbsExperiment() :
                 with open(_cache_path,'rb') as f :
                     result = pickle.load(f)
             else :
-                result = GibbsExperiment.solve_return_results_mutual_model(combined_params,is_acyclic,
+                result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
                                     pome_results,all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                     w_smapler_n_iter = combined_params['w_smapler_n_iter'])
                 with open(_cache_path,'wb') as f :
@@ -128,7 +127,6 @@ class GibbsExperiment() :
             result["original_pome_model"] =  pome_results["model"]
             result["state_to_distrbution_mapping"] =  pome_results["state_to_distrbution_mapping"]
             result['start_probabilites']= pome_results['start_probabilites']
-            result['is_acyclic'] = is_acyclic
             #endregion
 
             all_results_of_model[exp_idx] = result
@@ -144,7 +142,7 @@ class GibbsExperiment() :
         # er.build_report_from_multiparam_exp_results(all_models_results)
 
     @staticmethod
-    def solve_return_results_mutual_model(params,is_acyclic,pome_results,
+    def solve_return_results_mutual_model(params,pome_results,
                                           all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                           w_smapler_n_iter = 100):
         if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
@@ -157,7 +155,7 @@ class GibbsExperiment() :
         N = params['N'] if  params['is_few_observation_model'] else 2
         sampler = GibbsSampler(N, params['d'],transition_sampling_profile = transition_sampling_profile)
         all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-            sampler.sample(is_acyclic,all_relvent_observations, pome_results['start_probabilites'],
+            sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
                            mues_for_sampler,sigmas_for_sampler,params['N_itres'], w_smapler_n_iter=w_smapler_n_iter,
                            is_mh=params["is_mh"])
 
@@ -177,36 +175,6 @@ class GibbsExperiment() :
                     }
         print("finish")
         return results
-
-    def simulate_solve_return_results(self, easy_mode=False, w_smapler_n_iter = 100):
-        exp_params = {
-           'N' :self.N,
-           'd' : self.d,
-           'n_states' : self.n_states,
-           'p_prob_of_observation' : self.p_prob_of_observation,
-           'number_of_smapled_traj' : self.number_of_smapled_traj,
-            'N_itres' : self.N_itres
-        }
-
-        # simulate
-        simulator = Simulator_for_Gibbs(exp_params['N'],exp_params['d'],exp_params['n_states'],easy_mode = easy_mode)
-
-        original_pome_model,state_to_distrbution_mapping,transition_matrix_sparse,state_to_distrbution_param_mapping = \
-            simulator.build_pome_model(exp_params["N"], exp_params["d"], simulator.mues, simulator.sigmas)
-
-        simulator.update_known_mues_and_sigmes_to_state_mapping(state_to_distrbution_param_mapping)
-
-        all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,all_relvent_sampled_trajs_states = \
-            simulator.simulate_observations(original_pome_model,
-            exp_params['p_prob_of_observation'],
-            exp_params['number_of_smapled_traj'])
-
-        mues_for_sampler = simulator.states_known_mues if fixed_means else None
-
-        return GibbsExperiment.solve_return_results_mutual_model(exp_params,simulator,original_pome_model,topological_pome_model,
-                                          all_relvent_observations,all_full_sampled_trajs,all_full_sampled_trajs_states,
-                                          all_relvent_sampled_trajs_states,state_to_distrbution_mapping,mues_for_sampler,
-                                          w_smapler_n_iter = w_smapler_n_iter)
 
     @staticmethod
     def _build_defining_model_params(params_dict, model_defining_params_pre):
@@ -228,7 +196,7 @@ class GibbsExperiment() :
         return sets_of_params_dicts
 
     @staticmethod
-    def measure_ws_correction(sampled_ws, known_W) :
+    def measure_ws_correction(sampled_ws, known_W,N) :
         def mapping_distance(first,second) :
             res = [aa==bb for aa,bb in zip(first,second)]
             return (2*sum(res)-len(res))/len(res)
@@ -396,41 +364,4 @@ class GibbsExperiment() :
 if __name__ == '__main__':
 
     mode = "single"
-
-    if mode == 'single' :
-        #length of hmm :
-        N=15
-
-        #number of possible  states per time:
-        d=10
-
-        #number of distinct states :
-        n_states = 20
-
-        number_of_smapled_traj = 500
-        p_prob_of_observation = 0.7
-        N_itres =5
-
-        exp = GibbsExperiment(N,d,n_states,number_of_smapled_traj,p_prob_of_observation,N_itres)
-        full_mues_comper_df, final_transitions_comper_df = exp.simulate_solve_return_results(easy_mode = True, w_smapler_n_iter = 2)
-
-        display(full_mues_comper_df)
-        display(final_transitions_comper_df)
-
-    if mode == "multi" :
-        params_dict = {
-            'N' : [12],
-            'd' : [8],
-            'n_states' : [8,12],
-            'number_of_smapled_traj' : [100,500,2000],
-            'p_prob_of_observation' : [0.7,1],
-            'N_itres': [20,100,200],
-            'w_smapler_n_iter': [10,50,100]
-        }
-
-        all_results = GibbsExperiment.run_multi_params_and_return_results(params_dict)
-
-
-    print("done")
-
 

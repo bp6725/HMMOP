@@ -11,14 +11,14 @@ class TestGibbsExperiment(TestCase):
     def test_run_multi_params_and_plot_report(self):
         model_defining_params_pre = ['N', "d", "n_states",'is_acyclic','sigma','bipartite']
         params_dict = {
-            'is_acyclic': [True],
-            'known_mues': [False],
+            'known_mues': [True],
             "is_few_observation_model": [True],
-            "is_only_seen": ['observed'],
+            "is_only_seen": ['all'],
             'N': [35],
             'd': [9],
+            "non_cons_sim":[True,False],
             "bipartite": [False],
-            "inner_outer_trans_probs_ratio": [50],
+            "inner_outer_trans_probs_ratio": [300],
             'n_states': [10],
             'sigma': [0.1],
             'number_of_smapled_traj': [1000],
