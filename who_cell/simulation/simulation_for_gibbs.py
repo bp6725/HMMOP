@@ -410,8 +410,8 @@ class Simulator_for_Gibbs():
             "state_to_distrbution_mapping":state_to_distrbution_mapping,
             "transition_matrix_sparse":transition_matrix_sparse,
             "state_to_distrbution_param_mapping":state_to_distrbution_param_mapping,
-            "start_probabilites":start_probabilites,
-            'params_signature':params_signature
+            "start_probabilites":start_probabilites ,
+            "params_signature":params_signature
         }
 
         return pome_results
@@ -477,9 +477,19 @@ class Simulator_for_Gibbs():
             sparse_transitions_matrix[s_from] = _from_transitions
 
         start_probs = {}
+        start_states = []
         for s_from, s_from_order in state_to_order.items():
-            start_probs[s_from] = 1 if s_from_order < 3 else 0
+            if s_from_order < 3 :
+                start_probs[s_from] = 1
+                start_states.append(s_from)
+            else :
+                start_probs[s_from] = 0
         sparse_transitions_matrix['start'] = start_probs
+
+        for s_from, s_from_order in state_to_order.items():
+            if s_from_order > (max(state_to_order.values())-3) :
+                for state in start_states :
+                    sparse_transitions_matrix[s_from][state] = inner_outer_trans_probs_ratio
 
         sparse_transition_matrix = self._normalize_transition_matrix(sparse_transitions_matrix)
 
