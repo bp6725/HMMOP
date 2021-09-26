@@ -100,9 +100,9 @@ class GibbsExperiment() :
                                                                                                            mutual_model_params_dict,simulator )
 
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
-            all_relvent_sampled_trajs_states),_ = \
+            all_relvent_sampled_trajs_states,known_ws),_ = \
                 simulator.simulate_observations(pome_results["model"],combined_params,
-                                                pome_results['params_signature'],from_pre_sampled_traj = True)
+                                                pome_results['params_signature']+"knownW",from_pre_sampled_traj = True)
 
             _cache_path = ''.join([f"{k}{v}" for k,v in combined_params.items()])
             is_from_cache = skip_sampler and os.path.exists(_cache_path)
@@ -122,6 +122,7 @@ class GibbsExperiment() :
             result["all_full_sampled_trajs"] = all_full_sampled_trajs
             result["all_full_sampled_trajs_states"] =  all_full_sampled_trajs_states
             result["all_relvent_sampled_trajs_states"] = all_relvent_sampled_trajs_states
+            result['known_ws'] = known_ws
             result["simulator"] = simulator
             result["sigmas"] = simulator.sigmas
             result["original_pome_model"] =  pome_results["model"]
