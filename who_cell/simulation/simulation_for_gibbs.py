@@ -137,7 +137,7 @@ class Simulator_for_Gibbs():
         all_relvent_sampled_trajs_states = list(map(lambda x: [x[0][i] for i in x[1]], zip(all_full_sampled_trajs_states, all_ws)))
         self.known_Ws = all_ws
 
-        return all_relvent_observations,all_full_sampled_trajs,all_full_sampled_trajs_states,all_relvent_sampled_trajs_states
+        return all_relvent_observations,all_full_sampled_trajs,all_full_sampled_trajs_states,all_relvent_sampled_trajs_states,all_ws
 
     def build_transition_prob_from_known(self,pome_model):
         known_transitions_summary = {}
