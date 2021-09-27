@@ -533,10 +533,10 @@ class GibbsSampler() :
         new_mues = {}
         for state in sis.keys() :
             time = int(state[1])
-            ξ = 0 # priors[time][0]
-            κ = 0 # priors[time][1]
+            ξ =  priors[time][0]
+            κ =  priors[time][1]
             _mue = (sis[state] + ξ * κ * sigmas[state]) / (κ * sigmas[state] + nis[state])
-            _sig = (sigmas[state]) #/ (κ * sigmas[state] + nis[state])
+            _sig = (sigmas[state]) / (κ * sigmas[state] + nis[state])
             new_mues[state] = np.random.normal(_mue, _sig)
 
         return new_mues
