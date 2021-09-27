@@ -103,16 +103,21 @@ class GibbsSampler() :
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
     def sample_known_emissions(self, all_relvent_observations, start_probs,
-                               emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = False):
+                               emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True):
         emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
 
-        curr_trans = self.build_initial_transitions(states, True)
+        curr_trans = self.build_initial_transitions(states)
 
-        curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
+        if type(N) is list :
+            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs,_N in
+                      zip(all_relvent_observations,N)]
+        else:
+            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                  all_relvent_observations]
 
-        curr_walk,alpha = self.sample_walk_from_params(True, all_relvent_observations, N,
+        curr_walk,alpha = self.sample_walk_from_params(all_relvent_observations, N,
                                                  emissions_table, start_probs,
                                                  curr_w, curr_trans)
         _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
@@ -137,7 +142,7 @@ class GibbsSampler() :
                                                     observations=all_relvent_observations)
                 _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
-                curr_walk,alpha2 = self.sample_walk_from_params(True, all_relvent_observations, N,
+                curr_walk,alpha2 = self.sample_walk_from_params(all_relvent_observations, N,
                                                          emissions_table, start_probs,
                                                          curr_w, curr_trans,
                                                          curr_params=[curr_trans, curr_w, curr_walk, None,
@@ -533,10 +538,10 @@ class GibbsSampler() :
         new_mues = {}
         for state in sis.keys() :
             time = int(state[1])
-            ξ = 0 # priors[time][0]
-            κ = 0 # priors[time][1]
+            ξ =  priors[time][0]
+            κ =  priors[time][1]
             _mue = (sis[state] + ξ * κ * sigmas[state]) / (κ * sigmas[state] + nis[state])
-            _sig = (sigmas[state]) #/ (κ * sigmas[state] + nis[state])
+            _sig = (sigmas[state]) / (κ * sigmas[state] + nis[state])
             new_mues[state] = np.random.normal(_mue, _sig)
 
         return new_mues
