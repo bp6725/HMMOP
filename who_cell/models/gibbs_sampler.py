@@ -110,7 +110,8 @@ class GibbsSampler() :
 
         curr_trans = self.build_initial_transitions(states, True)
 
-        curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
+        curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                  all_relvent_observations]
 
         curr_walk,alpha = self.sample_walk_from_params(True, all_relvent_observations, N,
                                                  emissions_table, start_probs,
