@@ -132,7 +132,8 @@ class Simulator_for_Gibbs():
         else :
             all_full_sampled_trajs,all_full_sampled_trajs_states = self._sample_N_traj_from_pome_model(pome_model,
                                                                                                        number_of_smapled_traj,N)
-        if not mutual_model_params_dict['non_cons_sim'] :
+        mutual_model_params_dict['non_cons_sim'] = mutual_model_params_dict['non_cons_sim'] if 'non_cons_sim'  in mutual_model_params_dict.keys() else False
+        if not mutual_model_params_dict['non_cons_sim']   :
             all_relvent_observations,all_ws = Simulator_for_Gibbs.sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs)
         else :
             _idx_to_smaple = [np.cumsum(np.random.randint(2,4,N)) for i in range(len(all_full_sampled_trajs))]
