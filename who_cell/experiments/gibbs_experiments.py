@@ -147,12 +147,15 @@ class GibbsExperiment() :
         # solve
         transition_sampling_profile = params["is_only_seen"]
         N = params['N'] if  params['is_few_observation_model'] else 2
+
+        sample_missing_with_prior  = params["sample_missing_with_prior"] if "sample_missing_with_prior" in params.keys() else False
+
         sampler = GibbsSampler(N, params['d'],transition_sampling_profile = transition_sampling_profile)
         if params['is_few_observation_model']  :
             all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
             sampler.sample_known_W(all_relvent_observations, pome_results['start_probabilites'],
                            mues_for_sampler,sigmas_for_sampler,params['N_itres'],known_w, w_smapler_n_iter=w_smapler_n_iter,
-                           is_mh=params["is_mh"])
+                           is_mh=params["is_mh"],sample_missing_with_prior=sample_missing_with_prior)
         else :
             all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
                 sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
