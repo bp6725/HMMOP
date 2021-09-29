@@ -25,6 +25,7 @@ class TestGibbsExperiment(TestCase):
             'p_prob_of_observation': [0.3],
             'N_itres': [2],
             'is_mh': [False],
+            "sample_missing_with_prior":[True],
             'w_smapler_n_iter': [100]}
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)
