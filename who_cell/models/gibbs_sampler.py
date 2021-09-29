@@ -41,7 +41,7 @@ class GibbsSampler() :
 
         # TODO : why we dont know is_known_mues in this function ? if we know mues whay we need thw params ?
         #TODO : send isacyclic - if cyclic think of another way to calculate, if not validate the previous case
-        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) )
+        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) ) if not known_mues else None
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
         curr_trans = self.build_initial_transitions(states)
 
@@ -113,7 +113,7 @@ class GibbsSampler() :
 
         # TODO : why we dont know is_known_mues in this function ? if we know mues whay we need thw params ?
         #TODO : send isacyclic - if cyclic think of another way to calculate, if not validate the previous case
-        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) )
+        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) ) if not known_mues else None
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
         curr_trans = self.build_initial_transitions(states)
 
