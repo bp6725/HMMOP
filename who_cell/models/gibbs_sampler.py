@@ -153,11 +153,11 @@ class GibbsSampler() :
                 #                                       observations=all_relvent_observations)
 
                 n_obs = sum(list(map(len,curr_walk)))
-                priors = {k:(v/n_obs) for k,v in Counter(itertools.chain(*curr_walk)).items()}
+                states_priors = {k:(v/n_obs) for k,v in Counter(itertools.chain(*curr_walk)).items()} if sample_missing_with_prior else None
 
                 curr_walk,_ = self.sample_walk_from_params(all_relvent_observations,N,
                                                          state_to_distrbution_param_mapping,start_probs,
-                                                         curr_w, curr_trans,priors,
+                                                         curr_w, curr_trans,states_priors,
                                                            curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                       state_to_distrbution_param_mapping],
                                                          stage_name="walk"  if is_mh else "no_mh",
