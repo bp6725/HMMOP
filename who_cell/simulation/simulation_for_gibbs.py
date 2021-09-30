@@ -385,8 +385,7 @@ class Simulator_for_Gibbs():
 
 
         if not is_bipartite:
-            (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
-                params_signature = \
+            (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites)= \
                 self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
         else:
             if is_bipartite == True :
