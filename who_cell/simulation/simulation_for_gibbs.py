@@ -229,7 +229,7 @@ class Simulator_for_Gibbs():
             if state == 'end' : continue
             transition_matrix_sparse[state] = {}
 
-            n_of_out_trans = np.random.randint(2, d )
+            n_of_out_trans = np.random.randint(d-2, d )
             _possible_states = [s for s in possible_states if s != state]
             out_trans = np.random.choice(_possible_states, size=n_of_out_trans, replace=False)
 
@@ -275,7 +275,7 @@ class Simulator_for_Gibbs():
 
         return state_to_distrbution_param_mapping,transition_matrix_sparse,start_probabilites
 
-    @Infras.storage_cache
+    # @Infras.storage_cache
     def build_acyclic_template_model_parameters(self,N,d,mues,sigmas):
         state_to_distrbution_param_mapping = self._build_unique_states_to_params(N,d,mues,sigmas)
 
