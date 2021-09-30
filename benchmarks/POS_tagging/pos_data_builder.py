@@ -7,6 +7,8 @@ from itertools import chain
 import pandas as pd
 from who_cell.models.gibbs_sampler import Simulator_for_Gibbs
 from pomegranate import HiddenMarkovModel,DiscreteDistribution,State
+import os
+import pickle
 
 class PosDataBuilder() :
     STATE_ORDER_TO_PLOT = ['NOUN', 'DET', 'PRON', 'ADJ', 'ADP', 'VERB', 'ADV', 'NUM', 'X', 'PRT', 'CONJ']
@@ -55,9 +57,17 @@ class PosDataBuilder() :
         if self.markovien_sentence_words is None :
             transitions_probs,_ = self.get_known_transitions()
 
-            start_probs, emms_probs = self._build_starting_probabilites(), self._build_emissions_probabilites()
-            known_model_as_pome = PosDataBuilder.build_pome_for_pos_exp(transitions_probs,start_probs, emms_probs)
-            sampled_trajs_with_state = known_model_as_pome.sample(n=6000, length=length, path=True)
+            path = "simulated_for_markov_pos.pkl"
+            if not os.path.exists(path) :
+                start_probs, emms_probs = self._build_starting_probabilites(), self._build_emissions_probabilites()
+                known_model_as_pome = PosDataBuilder.build_pome_for_pos_exp(transitions_probs,start_probs, emms_probs)
+                sampled_trajs_with_state = known_model_as_pome.sample(n=6000, length=length, path=True)
+
+                with open(path,'wb') as f :
+                    pickle.dump(sampled_trajs_with_state,f)
+            else :
+                with open(path,'rb') as f :
+                    sampled_trajs_with_state = pickle.load(f)
 
             markovien_sentence_words = [[obs for obs in traj[0]] for traj in sampled_trajs_with_state]
             markovien_sentence_tags = [[obs.name for obs in traj[1] if 'start' not in obs.name] for traj in

@@ -41,7 +41,7 @@ class GibbsSampler() :
 
         # TODO : why we dont know is_known_mues in this function ? if we know mues whay we need thw params ?
         #TODO : send isacyclic - if cyclic think of another way to calculate, if not validate the previous case
-        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) ) if not known_mues else None
+        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) )
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
         curr_trans = self.build_initial_transitions(states)
 
@@ -180,16 +180,21 @@ class GibbsSampler() :
 
 
     def sample_known_emissions(self, all_relvent_observations, start_probs,
-                               emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = False):
+                               emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True):
         emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
 
-        curr_trans = self.build_initial_transitions(states, True)
+        curr_trans = self.build_initial_transitions(states)
 
-        curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
+        if type(N) is list :
+            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs,_N in
+                      zip(all_relvent_observations,N)]
+        else:
+            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                  all_relvent_observations]
 
-        curr_walk,alpha = self.sample_walk_from_params(True, all_relvent_observations, N,
+        curr_walk,alpha = self.sample_walk_from_params(all_relvent_observations, N,
                                                  emissions_table, start_probs,
                                                  curr_w, curr_trans)
         _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
@@ -214,7 +219,7 @@ class GibbsSampler() :
                                                     observations=all_relvent_observations)
                 _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
-                curr_walk,alpha2 = self.sample_walk_from_params(True, all_relvent_observations, N,
+                curr_walk,alpha2 = self.sample_walk_from_params(all_relvent_observations, N,
                                                          emissions_table, start_probs,
                                                          curr_w, curr_trans,
                                                          curr_params=[curr_trans, curr_w, curr_walk, None,
@@ -437,9 +442,9 @@ class GibbsSampler() :
         return states
 
     @staticmethod
-    def __probability_from_dist_params(observation,params,is_transitions_dict,prior) :
+    def __probability_from_dist_params(observation,params,is_transitions_dict) :
         if observation is None:
-            return prior
+            return 1
         if not is_transitions_dict:
             return Utils.normpdf(observation, params[0], params[1])
         else:
@@ -447,7 +452,7 @@ class GibbsSampler() :
 
     @staticmethod
     def _build_emmisions_for_sample(sample, w, state_to_distrbution_param_mapping,N,normalized_emm =  True,
-                                    is_known_emm = False,priors=None):
+                                    is_known_emm = False):
         states = list(state_to_distrbution_param_mapping.keys())
 
         __tmp_param = state_to_distrbution_param_mapping[states[0]]
@@ -467,10 +472,9 @@ class GibbsSampler() :
                 if (state in ['start','end']) :
                     _emm = 0
                 else :
-                    _prior = priors[state] if priors is not None else 1
                     _emm = GibbsSampler.__probability_from_dist_params(observation,
                                                                        state_to_distrbution_param_mapping[state],
-                                                                       is_transitions_dict,_prior)
+                                                                       is_transitions_dict)
                 #if not cyclic case : if the start is out of time is zero
 
                 emmisions[(state, time_ind)] = _emm
@@ -542,7 +546,7 @@ class GibbsSampler() :
         return GibbsSampler.__sample_single_time(sampled_state,walk,fwd, trans_prob, n - 1)
 
     @staticmethod
-    def _build_single_walk_from_postrior(fwd,trans_prob,N,priors=None) :
+    def _build_single_walk_from_postrior(fwd,trans_prob,N) :
         walk = []
         states_of_time = []
         prob_of_states_of_time = []
@@ -551,7 +555,7 @@ class GibbsSampler() :
             states_of_time.append(state)
             prob_of_states_of_time.append(prob)
 
-        prob_of_states_of_time = prob_of_states_of_time if sum(prob_of_states_of_time) != 0 else np.array([priors[s] for s in states_of_time])
+        prob_of_states_of_time = prob_of_states_of_time if sum(prob_of_states_of_time) != 0 else np.array([1 for i in prob_of_states_of_time])
         # print(f"{prob_of_states_of_time}:{sum(prob_of_states_of_time)}")
         # print(f"{list((np.array(prob_of_states_of_time)/sum(prob_of_states_of_time)))}")
         # print('---')
@@ -568,7 +572,7 @@ class GibbsSampler() :
         return walk
 
     @staticmethod
-    def _fwd_bkw(states, start_prob, trans_prob, emm_prob,N,only_forward = False,priors=None):
+    def _fwd_bkw(states, start_prob, trans_prob, emm_prob,N,only_forward = False):
         """Forward–backward algorithm."""
         # Forward part of the algorithm
         fwd = []
@@ -599,7 +603,7 @@ class GibbsSampler() :
             return fwd
 
         # Backward part of the algorithm
-        return GibbsSampler._build_single_walk_from_postrior(fwd,trans_prob, N,priors)
+        return GibbsSampler._build_single_walk_from_postrior(fwd,trans_prob, N)
 
     def sample_mus_from_params(self,all_sampled_states, sum_relvent_observations, priors,  sigmas,known_mues):
         if known_mues is not None :
@@ -611,10 +615,10 @@ class GibbsSampler() :
         new_mues = {}
         for state in sis.keys() :
             time = int(state[1])
-            ξ = 0 # priors[time][0]
-            κ = 0 # priors[time][1]
+            ξ =  priors[time][0]
+            κ =  priors[time][1]
             _mue = (sis[state] + ξ * κ * sigmas[state]) / (κ * sigmas[state] + nis[state])
-            _sig = (sigmas[state]) #/ (κ * sigmas[state] + nis[state])
+            _sig = (sigmas[state]) / (κ * sigmas[state] + nis[state])
             new_mues[state] = np.random.normal(_mue, _sig)
 
         return new_mues
@@ -691,7 +695,7 @@ class GibbsSampler() :
 
         return result_per_traj
 
-    def _sample_walk_from_params(self, N, state_to_distrbution_param_mapping,start_prob,  curr_trans,priors,samples_data):
+    def _sample_walk_from_params(self, N, state_to_distrbution_param_mapping,start_prob,  curr_trans,samples_data):
         if type(N) is list :
             sample, _curr_ws,_N = samples_data
             seq_length = max(len(sample), _N)
@@ -700,24 +704,24 @@ class GibbsSampler() :
             seq_length = max(len(sample), N)
 
         emmisions = GibbsSampler._build_emmisions_for_sample( sample,
-                                                     _curr_ws, state_to_distrbution_param_mapping, seq_length,priors=priors)
+                                                     _curr_ws, state_to_distrbution_param_mapping, seq_length)
 
         flat_trans_prob = {(_f, _t): self._sample_trans_matrix(curr_trans, _f, _t) for _f, _t in
                            itertools.product(curr_trans.keys(), curr_trans.keys())}
         posterior = self._fwd_bkw( state_to_distrbution_param_mapping.keys(),
-                                  start_prob, flat_trans_prob, emmisions, seq_length,priors=priors)
+                                  start_prob, flat_trans_prob, emmisions, seq_length)
         return posterior
 
     @Utils.update_based_on_alpha
     def sample_walk_from_params(self, sampled_trajs,N, state_to_distrbution_param_mapping,
-                                start_prob, curr_ws, curr_trans,priors = None):
+                                start_prob, curr_ws, curr_trans):
         if type(N) is list :
             samples_data = [(sampled_trajs[i], curr_ws[i],N[i]) for i in range(len(sampled_trajs))]
         else :
             samples_data = list(zip(sampled_trajs , curr_ws))
 
         _partial_sample_walk_from_params = partial(self._sample_walk_from_params, N,
-                                                   state_to_distrbution_param_mapping,start_prob,  curr_trans,priors)
+                                                   state_to_distrbution_param_mapping,start_prob,  curr_trans)
         if self.multi_process :
             with Pool(base_config.n_cores) as p:
                 walks = p.map(_partial_sample_walk_from_params, samples_data)
