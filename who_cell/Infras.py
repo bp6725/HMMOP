@@ -33,7 +33,7 @@ class Infras() :
             params_signature = params_signature.replace(' ', '').replace('.', '').replace('\n','')
             cache_path = os.path.join(r"../../cache",
                                       params_signature + ".pkl")
-
+            return func(self, *args, **kwargs),'_'.join(params[1:])
             if os.path.exists(cache_path):
                 with open(cache_path, "rb") as f:
                     res = pkl.load(f)
