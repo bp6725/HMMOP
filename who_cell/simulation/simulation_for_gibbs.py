@@ -275,7 +275,7 @@ class Simulator_for_Gibbs():
 
         return state_to_distrbution_param_mapping,transition_matrix_sparse,start_probabilites
 
-    # @Infras.storage_cache
+    @Infras.storage_cache
     def build_acyclic_template_model_parameters(self,N,d,mues,sigmas):
         state_to_distrbution_param_mapping = self._build_unique_states_to_params(N,d,mues,sigmas)
 
@@ -385,7 +385,8 @@ class Simulator_for_Gibbs():
 
 
         if not is_bipartite:
-            (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites)= \
+            (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
+                params_signature = \
                 self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
         else:
             if is_bipartite == True :
