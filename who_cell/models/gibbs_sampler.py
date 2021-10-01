@@ -235,6 +235,7 @@ class GibbsSampler() :
 
         new_pome_model.fit(all_relvent_observations,n_jobs=base_config.n_cores)
         all_transitions = Utils._extrect_states_transitions_dict_from_pome_model(new_pome_model)[0]
+        all_transitions = {str(k):{str(kk):vv for kk,vv in v.items()} for k,v in all_transitions.items()}
         return all_transitions
 
     def sequence_labeling_known_emissions(self,all_relvent_observations,transitions_probs, start_probs,
