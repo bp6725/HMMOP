@@ -92,3 +92,35 @@ class Utils() :
 
         return reduce(lambda x, y: x * y, emissions_prob) * reduce(lambda x, y: x * y, transitions_prob)
 
+    @staticmethod
+    def _extrect_states_transitions_dict_from_pome_model( model, states=None):
+        if states is None:
+            states = model.get_params()['states']
+
+        edges = model.get_params()['edges']
+        transition_dict = {}
+        final_states = []
+        for e in edges:
+            if ('start' in states[e[0]].name):
+                continue
+            if ('end' in states[e[1]].name):
+                try:
+                    final_states.append(eval(states[e[0]].name))
+                except:
+                    final_states.append(states[e[0]].name)
+                continue
+
+            try :
+                _from = eval(states[e[0]].name)
+                _to = eval(states[e[1]].name)
+            except :
+                _from = states[e[0]].name
+                _to = states[e[1]].name
+
+            _weight = e[2]
+
+            if _from not in transition_dict.keys():
+                transition_dict[_from] = {_to: _weight}
+            else:
+                transition_dict[_from][_to] = _weight
+        return transition_dict, final_states

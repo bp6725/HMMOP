@@ -102,6 +102,69 @@ class GibbsSampler() :
                 pbar.update(1)
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
+    def sample_known_W(self, all_relvent_observations, start_probs,
+               known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False):
+        print("start known W")
+        N = self.N if N is None else N
+        states = list(set(list(start_probs.keys()) + ['start','end']))
+        start_probs = {state:(1/(len(states)-2)) for state in states}
+        state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
+                                                                                                     states)
+
+        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) ) if not known_mues else None
+        curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
+        curr_trans = self.build_initial_transitions(states)
+
+        state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
+        curr_walk,alpha= self.sample_walk_from_params(all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
+                                                 curr_w, curr_trans)
+
+        sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w,
+                                                                         state_to_distrbution_param_mapping,
+                                                                         curr_mus,sigmas)
+        sampled_transitions = self._exrect_transitions_from_walk(curr_walk,states,curr_w)
+
+        all_sampled_transitions = [sampled_transitions]
+        all_transitions = [curr_trans]
+        all_states = [sampled_states]
+        all_observations_sum = [observations_sum]
+        all_mues = [curr_mus]
+        all_ws = [curr_w]
+        with tqdm(total=Ng_iters) as pbar:
+            for i in range(Ng_iters):
+                curr_mus = self.sample_mus_from_params(sampled_states, observations_sum,priors, sigmas,known_mues)
+                state_to_distrbution_param_mapping = self._update_distributions_params(
+                    state_to_distrbution_param_mapping, curr_mus)
+
+                curr_trans,_ = self.sample_trans_from_params(sampled_transitions,states,
+                                                             curr_params =[curr_trans,curr_w,curr_walk,None,state_to_distrbution_param_mapping],
+                                                             stage_name="transitions" if is_mh else "no_mh" ,
+                                                             observations = all_relvent_observations)
+
+                curr_walk,_ = self.sample_walk_from_params(all_relvent_observations,N,
+                                                         state_to_distrbution_param_mapping,start_probs,
+                                                         curr_w, curr_trans,
+                                                           curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                      state_to_distrbution_param_mapping],
+                                                         stage_name="walk"  if is_mh else "no_mh",
+                                                         observations=all_relvent_observations)
+
+
+                sampled_transitions = self._exrect_transitions_from_walk(curr_walk,states,curr_w)
+                sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,
+                                                                                 curr_w,state_to_distrbution_param_mapping,
+                                                                                 curr_mus,sigmas)
+
+                all_sampled_transitions.append(sampled_transitions)
+                all_transitions.append(curr_trans)
+                all_states.append(sampled_states)
+                all_observations_sum.append(observations_sum)
+                all_mues.append(curr_mus)
+                all_ws.append(curr_w)
+                pbar.update(1)
+        return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
+
+
     def sample_known_emissions(self, all_relvent_observations, start_probs,
                                emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True):
         emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
@@ -159,6 +222,23 @@ class GibbsSampler() :
                 all_ws.append(curr_w)
                 pbar.update(1)
         return  all_sampled_transitions, all_ws, all_transitions,all_states_picked_by_w,all_alphas
+
+    def reconstruction_using_pomegranate(self,all_relvent_observations,state_to_distrbution_param_mapping,known_w=None):
+        simulator = Simulator_for_Gibbs(None,None,1)
+
+        if known_w is not None:
+            all_relvent_observations = [[(obs if idx in ws else None) for idx, obs in enumerate(traj)] for ws, traj in
+                                        zip(known_w, all_relvent_observations)]
+
+        states_names = state_to_distrbution_param_mapping.keys()
+        uniform_transitions_matrix = {s: {ss: 1 for ss in states_names if ss != 'start'} for s in states_names}
+
+        new_pome_model, all_model_pome_states = simulator._build_pome_model_from_params(
+            state_to_distrbution_param_mapping, uniform_transitions_matrix)
+
+        new_pome_model.fit(all_relvent_observations)
+        all_transitions = Utils._extrect_states_transitions_dict_from_pome_model(new_pome_model)[0]
+        return all_transitions
 
     def compare_transitions_prob_to_count(self,transitions_prob,transitions_count,n_traj,N,d):
 
