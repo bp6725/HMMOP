@@ -236,7 +236,7 @@ class GibbsSampler() :
         new_pome_model, all_model_pome_states = simulator._build_pome_model_from_params(
             state_to_distrbution_param_mapping, uniform_transitions_matrix)
 
-        new_pome_model.fit(all_relvent_observations)
+        new_pome_model.fit(all_relvent_observations,n_jobs=base_config.n_cores)
         all_transitions = Utils._extrect_states_transitions_dict_from_pome_model(new_pome_model)[0]
         return all_transitions
 
