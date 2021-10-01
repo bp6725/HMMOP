@@ -103,8 +103,7 @@ class GibbsSampler() :
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
     def sample_known_W(self, all_relvent_observations, start_probs,
-               known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False,
-                       sample_missing_with_prior=False):
+               known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False):
         print("start known W")
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start','end']))
@@ -112,13 +111,9 @@ class GibbsSampler() :
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
                                                                                                      states)
 
-        # TODO : why we dont know is_known_mues in this function ? if we know mues whay we need thw params ?
-        #TODO : send isacyclic - if cyclic think of another way to calculate, if not validate the previous case
         priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) ) if not known_mues else None
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
         curr_trans = self.build_initial_transitions(states)
-
-        # curr_w = [list(range(len(obs))) for obs in all_relvent_observations]
 
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
         curr_walk,alpha= self.sample_walk_from_params(all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
@@ -145,19 +140,10 @@ class GibbsSampler() :
                                                              curr_params =[curr_trans,curr_w,curr_walk,None,state_to_distrbution_param_mapping],
                                                              stage_name="transitions" if is_mh else "no_mh" ,
                                                              observations = all_relvent_observations)
-                # curr_w,_ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
-                #                                       state_to_distrbution_param_mapping,N,
-                #                                       n_iters=w_smapler_n_iter,
-                #                                       curr_params=[curr_trans, curr_w, curr_walk, None, state_to_distrbution_param_mapping],
-                #                                       stage_name="w"  if is_mh else "no_mh",
-                #                                       observations=all_relvent_observations)
-
-                n_obs = sum(list(map(len,curr_walk)))
-                states_priors = {k:(v/n_obs) for k,v in Counter(itertools.chain(*curr_walk)).items()} if sample_missing_with_prior else None
 
                 curr_walk,_ = self.sample_walk_from_params(all_relvent_observations,N,
                                                          state_to_distrbution_param_mapping,start_probs,
-                                                         curr_w, curr_trans,states_priors,
+                                                         curr_w, curr_trans,
                                                            curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                       state_to_distrbution_param_mapping],
                                                          stage_name="walk"  if is_mh else "no_mh",
@@ -236,6 +222,23 @@ class GibbsSampler() :
                 all_ws.append(curr_w)
                 pbar.update(1)
         return  all_sampled_transitions, all_ws, all_transitions,all_states_picked_by_w,all_alphas
+
+    def reconstruction_using_pomegranate(self,all_relvent_observations,state_to_distrbution_param_mapping,known_w=None):
+        simulator = Simulator_for_Gibbs(None,None,1)
+
+        if known_w is not None:
+            all_relvent_observations = [[(obs if idx in ws else None) for idx, obs in enumerate(traj)] for ws, traj in
+                                        zip(known_w, all_relvent_observations)]
+
+        states_names = state_to_distrbution_param_mapping.keys()
+        uniform_transitions_matrix = {s: {ss: 1 for ss in states_names if ss != 'start'} for s in states_names}
+
+        new_pome_model, all_model_pome_states = simulator._build_pome_model_from_params(
+            state_to_distrbution_param_mapping, uniform_transitions_matrix)
+
+        new_pome_model.fit(all_relvent_observations)
+        all_transitions = Utils._extrect_states_transitions_dict_from_pome_model(new_pome_model)[0]
+        return all_transitions
 
     def compare_transitions_prob_to_count(self,transitions_prob,transitions_count,n_traj,N,d):
 

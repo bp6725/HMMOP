@@ -102,9 +102,9 @@ class GibbsExperiment() :
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
             all_relvent_sampled_trajs_states,known_ws),_ = \
                 simulator.simulate_observations(pome_results["model"],combined_params,
-                                                pome_results['params_signature']+"knownW",from_pre_sampled_traj = True)
+                                                pome_results['params_signature'],from_pre_sampled_traj = True)
 
-            _cache_path = ''.join([f"{k}{v}" for k,v in combined_params.items()])
+            _cache_path = ''.join([f"{str(k)[:3]}{str(v)[:3]}" for k,v in combined_params.items()])
             is_from_cache = skip_sampler and os.path.exists(_cache_path)
             if is_from_cache :
                 with open(_cache_path,'rb') as f :
@@ -112,7 +112,7 @@ class GibbsExperiment() :
             else :
                 result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
                                     pome_results,all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
-                                    w_smapler_n_iter = combined_params['w_smapler_n_iter'])
+                                    w_smapler_n_iter = combined_params['w_smapler_n_iter'],known_w=known_ws)
                 with open(_cache_path,'wb') as f :
                     pickle.dump(result,f)
             if result is None : continue
@@ -143,37 +143,72 @@ class GibbsExperiment() :
         # er.build_report_from_multiparam_exp_results(all_models_results)
 
     @staticmethod
+    def _is_valid_experiment(params):
+        if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
+            return False
+        if ((params['is_few_observation_model'] == False) and (
+                params['is_only_seen'] == "observed" or params['is_only_seen'] == "extended")):
+            return False
+        if ((params['is_few_observation_model'] == False) and (params["is_known_W"] == True)):
+            return False
+        return True
+
+    @staticmethod
+    def extrect_params(params):
+        transition_sampling_profile = params["is_only_seen"]
+        N = params['N'] if  params['is_few_observation_model'] else 2
+        sample_missing_with_prior  = params["sample_missing_with_prior"] if "sample_missing_with_prior" in params.keys() else False
+        is_known_W = params['is_known_W'] if "is_known_W" in params.keys() else False
+        is_multi_process = params['is_multi_process'] if "is_multi_process" in params.keys() else False
+        use_pomegranate = params['use_pomegranate'] if "use_pomegranate" in params.keys() else False
+
+
+        return transition_sampling_profile,N,sample_missing_with_prior,is_known_W,is_multi_process,use_pomegranate
+
+    @staticmethod
     def solve_return_results_mutual_model(params,pome_results,
                                           all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                           w_smapler_n_iter = 100,known_w = None):
-        if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
-            return None
-        if ((params['is_few_observation_model'] == False) and (params['is_only_seen'] == "observed" or params['is_only_seen'] == "extended")):
-            return None
-        print(params)
-        # solve
-        transition_sampling_profile = params["is_only_seen"]
-        N = params['N'] if  params['is_few_observation_model'] else 2
 
-        sampler = GibbsSampler(N, params['d'],transition_sampling_profile = transition_sampling_profile)
-        if params['is_few_observation_model']  :
+        transition_sampling_profile, N, sample_missing_with_prior,\
+        is_known_W,is_multi_process,use_pomegranate = GibbsExperiment.extrect_params(params)
+
+        if not GibbsExperiment._is_valid_experiment(params) : return None
+        print(params)
+
+        # solve
+
+        sampler = GibbsSampler(N, params['d'],transition_sampling_profile= transition_sampling_profile,
+                               multi_process= is_multi_process)
+
+        if use_pomegranate :
+            _transitions = sampler.reconstruction_using_pomegranate(all_relvent_observations,
+                                                                    pome_results["state_to_distrbution_param_mapping"],
+                                                                    known_w=known_w)
+            all_transitions = [_transitions for i in range(params['N_itres'])]
+            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws = (None, None, None, None, None)
+
+            sampled_transitions_dict = None
+            sampled_mues = None
+
+        elif not is_known_W  :
+            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
+                sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
+                               mues_for_sampler, sigmas_for_sampler, params['N_itres'],
+                               w_smapler_n_iter=w_smapler_n_iter,
+                               is_mh=params["is_mh"])
+            sampled_transitions_dict = all_sampled_transitions[-1]
+            sampled_mues = all_mues[-1]
+
+        else :
             all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
             sampler.sample_known_W(all_relvent_observations, pome_results['start_probabilites'],
                            mues_for_sampler,sigmas_for_sampler,params['N_itres'],known_w, w_smapler_n_iter=w_smapler_n_iter,
-                           is_mh=params["is_mh"],sample_missing_with_prior=sample_missing_with_prior)
-        else :
-            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
-                                       mues_for_sampler, sigmas_for_sampler, params['N_itres'],
-                                       w_smapler_n_iter=w_smapler_n_iter,
-                                       is_mh=params["is_mh"])
-        all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-            sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
-                           mues_for_sampler,sigmas_for_sampler,params['N_itres'], w_smapler_n_iter=w_smapler_n_iter,
                            is_mh=params["is_mh"])
 
-        sampled_transitions_dict = all_sampled_transitions[-1]
-        sampled_mues = all_mues[-1]
+
+            sampled_transitions_dict = all_sampled_transitions[-1]
+            sampled_mues = all_mues[-1]
 
         results = {"all_relvent_observations": all_relvent_observations,
                    "sampler": sampler,

@@ -109,7 +109,7 @@ class Simulator_for_Gibbs():
 
         return all_relvent_observations, all_ws
 
-    # @Infras.storage_cache
+    @Infras.storage_cache
     def simulate_observations(self,pome_model,mutual_model_params_dict,params_signature,from_pre_sampled_traj = False):
         p_prob_of_observation = mutual_model_params_dict['p_prob_of_observation']
         number_of_smapled_traj = mutual_model_params_dict['number_of_smapled_traj']
