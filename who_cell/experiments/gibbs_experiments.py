@@ -113,8 +113,9 @@ class GibbsExperiment() :
                 result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
                                     pome_results,all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                     w_smapler_n_iter = combined_params['w_smapler_n_iter'],known_w=known_ws)
-                with open(_cache_path,'wb') as f :
-                    pickle.dump(result,f)
+                if skip_sampler :
+                    with open(_cache_path,'wb') as f :
+                        pickle.dump(result,f)
             if result is None : continue
             #region update result param
             result['mutual_params'] = mutual_model_params_dict
