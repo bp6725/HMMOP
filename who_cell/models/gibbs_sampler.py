@@ -39,7 +39,7 @@ class GibbsSampler() :
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
                                                                                                      states)
 
-        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) )
+        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) ) if not known_mues else None
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
         curr_trans = self.build_initial_transitions(states)
 
