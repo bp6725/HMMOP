@@ -39,8 +39,6 @@ class GibbsSampler() :
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
                                                                                                      states)
 
-        # TODO : why we dont know is_known_mues in this function ? if we know mues whay we need thw params ?
-        #TODO : send isacyclic - if cyclic think of another way to calculate, if not validate the previous case
         priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) )
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
         curr_trans = self.build_initial_transitions(states)
@@ -164,7 +162,6 @@ class GibbsSampler() :
                 pbar.update(1)
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
-
     def sample_known_emissions(self, all_relvent_observations, start_probs,
                                emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True):
         emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
@@ -239,6 +236,55 @@ class GibbsSampler() :
         new_pome_model.fit(all_relvent_observations,n_jobs=base_config.n_cores)
         all_transitions = Utils._extrect_states_transitions_dict_from_pome_model(new_pome_model)[0]
         return all_transitions
+
+    def sequence_labeling_known_emissions(self,all_relvent_observations,transitions_probs, start_probs,
+                               emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True):
+        emissions_table = self.impute_emissions_table_with_zeros(emissions_table, all_relvent_observations)
+        N = self.N if N is None else N
+
+        curr_trans = transitions_probs
+
+        if type(N) is list:
+            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs, _N in
+                      zip(all_relvent_observations, N)]
+        else:
+            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                      all_relvent_observations]
+
+        curr_walk, alpha = self.sample_walk_from_params(all_relvent_observations, N,
+                                                        emissions_table, start_probs,
+                                                        curr_w, curr_trans)
+        _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
+
+
+        all_alphas = [alpha]
+        all_ws = [curr_w]
+        all_states_picked_by_w = [_states_picked_by_w]
+        with tqdm(total=Ng_iters) as pbar:
+            for i in range(Ng_iters):
+                curr_w, alpha1 = self.sample_ws_from_params(all_relvent_observations, curr_walk, emissions_table, N,
+                                                            n_iters=w_smapler_n_iter,
+                                                            curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                         emissions_table],
+                                                            stage_name="w" if is_mh else "no_mh",
+                                                            observations=all_relvent_observations)
+                _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
+
+                curr_walk, alpha2 = self.sample_walk_from_params(all_relvent_observations, N,
+                                                                 emissions_table, start_probs,
+                                                                 curr_w, curr_trans,
+                                                                 curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                              emissions_table],
+                                                                 stage_name="walk" if is_mh else "no_mh",
+                                                                 observations=all_relvent_observations)
+
+
+                all_alphas.append(np.mean([ alpha1, alpha2]))
+                all_states_picked_by_w.append(_states_picked_by_w)
+                all_ws.append(curr_w)
+                pbar.update(1)
+        return  all_ws, all_states_picked_by_w, all_alphas
+
 
     def compare_transitions_prob_to_count(self,transitions_prob,transitions_count,n_traj,N,d):
 
