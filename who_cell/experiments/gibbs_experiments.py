@@ -186,7 +186,7 @@ class GibbsExperiment() :
             _transitions = sampler.reconstruction_using_pomegranate(all_relvent_observations,
                                                                     pome_results["state_to_distrbution_param_mapping"],
                                                                     known_w=known_w)
-            all_transitions = [_transitions for i in range(params['N_itres'])]
+            all_transitions = [_transitions for i in range(params['N_itres']+1)]
             all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws = (None, None, None, None, None)
 
             sampled_transitions_dict = None

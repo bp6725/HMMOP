@@ -22,3 +22,5 @@ benchmarks/bipartite/
 *.2N_itres80w_smapler_n_iter15
 
 benchmarks/simulations/
+/.idea/deployment.xml
+/benchmarks/
