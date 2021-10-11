@@ -9,6 +9,10 @@ from who_cell.models.gibbs_sampler import Simulator_for_Gibbs
 from pomegranate import HiddenMarkovModel,DiscreteDistribution,State
 import os
 import pickle
+import nltk
+import snowballstemmer
+import itertools
+
 
 class PosDataBuilder() :
     STATE_ORDER_TO_PLOT = ['NOUN', 'DET', 'PRON', 'ADJ', 'ADP', 'VERB', 'ADV', 'NUM', 'X', 'PRT', 'CONJ']
@@ -34,7 +38,27 @@ class PosDataBuilder() :
         self.emms_probs = None
         self.start_probs = None
 
-    def get_experiment_sets_from_real_data(self,pc,partial_trajs = True):
+        self.train_set_words = None
+        self.train_set_tags = None
+
+    def get_experiment_sets_from_real_data(self, pc, partial_trajs=True) :
+        test_set_words, test_set_tags,test_set_ws = self.get_experiment_test_sets_from_real_data(pc,partial_trajs)
+        train_set_words, train_set_tags= self.get_experiment_train_sets_from_real_data()
+        return test_set_words, test_set_tags,train_set_words, train_set_tags
+        print("here")
+
+    def get_experiment_train_sets_from_real_data(self):
+        if self.train_set_words is None :
+            train_set_words, train_set_tags = self.build_clean_train_sets()
+            self.train_set_words = train_set_words
+            self.train_set_tags = train_set_tags
+        else :
+            train_set_words = self.train_set_words
+            train_set_tags = self.train_set_tags
+
+        return train_set_words, train_set_tags
+
+    def get_experiment_test_sets_from_real_data(self,pc,partial_trajs = True):
         if self.test_set_words is None :
             test_set_words, test_set_tags = self.build_clean_test_sets()
         else :
@@ -42,16 +66,21 @@ class PosDataBuilder() :
             test_set_tags = self.test_set_tags
 
         if not partial_trajs :
-            return test_set_words,test_set_tags
+            return test_set_words,test_set_tags,None
 
         if self.few_obs_test_set_words is None :
             few_observations = Simulator_for_Gibbs.sample_traj_for_few_obs(pc, test_set_words)
-            few_obs_test_set_words,few_obs_test_set_tags = few_observations[0], few_observations[1]
-            self.few_obs_test_set_words, self.few_obs_test_set_tags = few_obs_test_set_words,few_obs_test_set_tags
+            few_obs_test_set_words,few_obs_test_set_ws = few_observations[0], few_observations[1]
+            few_obs_test_set_tags = [[sentence_tags[w] for w in ws] for (ws,sentence_tags) in zip(few_obs_test_set_ws,test_set_tags)]
+            self.few_obs_test_set_words, self.few_obs_test_set_tags,self.few_obs_test_set_ws = few_obs_test_set_words,\
+                                                                                               few_obs_test_set_tags,\
+                                                                                               few_obs_test_set_ws
         else :
-            few_obs_test_set_words, few_obs_test_set_tags = self.few_obs_test_set_words, self.few_obs_test_set_tags
+            few_obs_test_set_words, few_obs_test_set_tags,few_obs_test_set_ws = self.few_obs_test_set_words,\
+                                                                                self.few_obs_test_set_tags,\
+                                                                                self.few_obs_test_set_ws
 
-        return few_obs_test_set_words,few_obs_test_set_tags
+        return few_obs_test_set_words,few_obs_test_set_tags,few_obs_test_set_ws
 
     def get_experiment_sets_from_markovien_sets(self,pc,length,partial_trajs = True):
         if self.markovien_sentence_words is None :
@@ -85,32 +114,14 @@ class PosDataBuilder() :
 
         return markovien_few_obs_test_set_words, markovien_few_obs_test_set_tags
 
-    def plot_states(self):
-        length_of_sentences,count_of_pos_in_sentence = self._plot_hist_length_of_sentences(self.row_data)
-        #TODO: more if nedded
-
     def _build_emissions_probabilites(self):
         if self.emms_probs is not None:
             return self.emms_probs
 
-        reverse_emms_counts = {}  # word => POS mapping
-
-        for _word, _pos in self.row_data.training_set.stream():
-            if _word not in reverse_emms_counts.keys():
-                reverse_emms_counts[_word] = {_pos: 1}
-                continue
-            if _pos not in reverse_emms_counts[_word]:
-                reverse_emms_counts[_word][_pos] = 1
-                continue
-            reverse_emms_counts[_word][_pos] += 1
-
-        n_of_pos_per_word = [len(poss.items()) for word, poss in reverse_emms_counts.items()]
-        # print("we counted the number of possible pos per word : ")
-        # print(f"ambiguous per word : {Counter(n_of_pos_per_word)}")
-
         emms_counts = {}  # word => POS mapping
 
-        for _word, _pos in self.row_data.training_set.stream():
+        train_set_words, train_set_tags = self.get_experiment_train_sets_from_real_data()
+        for _word, _pos in zip(itertools.chain(*train_set_words),itertools.chain(*train_set_tags)):
             if _pos == '.': continue
             if _pos not in emms_counts.keys():
                 emms_counts[_pos] = {_word: 1}
@@ -131,11 +142,9 @@ class PosDataBuilder() :
             return self.start_probs
 
         start_count = {pos: 0 for pos in self._set_of_pos}
-        for idx, sentence in self.row_data.training_set:
-            tags_no_punctuation = list(filter(lambda x: x not in string.punctuation, sentence.tags))
-            if len(tags_no_punctuation) == 0: continue
-            _tag = tags_no_punctuation[0]
-            start_count[_tag] += 1
+        _, train_set_tags = self.get_experiment_train_sets_from_real_data()
+        for sentences_tags in train_set_tags:
+            start_count[sentences_tags[0]] += 1
 
         start_probs = {pos: count / sum(start_count.values()) for pos, count in start_count.items()}
 
@@ -143,13 +152,15 @@ class PosDataBuilder() :
         return start_probs
 
     def build_clean_test_sets(self):
+        stemmer = snowballstemmer.stemmer('english')
+        num_to_symbol = lambda x: x if not x.isnumeric() else "#"
         non_relevent_words = string.punctuation + '``' + '.' + '--' + "''" + ','
 
         test_set_words = []
         test_set_tags = []
 
         for idx, sentence in self.row_data.testing_set:
-            clean_tuples = [(word, tag) for word, tag in zip(sentence.words, sentence.tags) if
+            clean_tuples = [(num_to_symbol(stemmer.stemWord(word)), tag) for word, tag in zip(sentence.words, sentence.tags) if
                             word not in non_relevent_words]
             if len(clean_tuples) < 2: continue
             test_set_words.append([word for word, tag in clean_tuples])
@@ -159,6 +170,26 @@ class PosDataBuilder() :
         self.test_set_tags = test_set_tags
 
         return test_set_words,test_set_tags
+
+    def build_clean_train_sets(self):
+        stemmer = snowballstemmer.stemmer('english')
+        num_to_symbol = lambda x: x if not x.isnumeric() else "#"
+        non_relevent_words = string.punctuation + '``' + '.' + '--' + "''" + ','
+
+        training_set_words = []
+        training_set_tags = []
+
+        for idx, sentence in self.row_data.training_set:
+            clean_tuples = [(num_to_symbol(stemmer.stemWord(word)), tag) for word, tag in zip(sentence.words, sentence.tags) if
+                            word not in non_relevent_words]
+            if len(clean_tuples) < 2: continue
+            training_set_words.append([word for word, tag in clean_tuples])
+            training_set_tags.append([tag for word, tag in clean_tuples])
+
+        self.training_set_words = training_set_words
+        self.training_set_tags = training_set_tags
+
+        return training_set_words,training_set_tags
 
     def get_known_transitions(self):
         if self.test_set_tags is None :
@@ -211,3 +242,11 @@ class PosDataBuilder() :
 
         pome_model.bake()
         return pome_model
+
+
+if __name__ == '__main__':
+    _builder = PosDataBuilder()
+    _builder.get_experiment_sets_from_real_data(0.5,True)
+
+    _builder._build_starting_probabilites()
+    _builder._build_emissions_probabilites()

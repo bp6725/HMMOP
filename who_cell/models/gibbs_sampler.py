@@ -286,7 +286,6 @@ class GibbsSampler() :
                 pbar.update(1)
         return  all_ws, all_states_picked_by_w, all_alphas
 
-
     def compare_transitions_prob_to_count(self,transitions_prob,transitions_count,n_traj,N,d):
 
         #the previous mathods need states as tuple and not str
@@ -606,9 +605,6 @@ class GibbsSampler() :
             prob_of_states_of_time.append(prob)
 
         prob_of_states_of_time = prob_of_states_of_time if sum(prob_of_states_of_time) != 0 else np.array([1 for i in prob_of_states_of_time])
-        # print(f"{prob_of_states_of_time}:{sum(prob_of_states_of_time)}")
-        # print(f"{list((np.array(prob_of_states_of_time)/sum(prob_of_states_of_time)))}")
-        # print('---')
         _sum_prob_of_states_of_time = sum(prob_of_states_of_time)
         sampled_state_inde = GibbsSampler.choice(range(len(states_of_time)),
                                     [p / _sum_prob_of_states_of_time for p in prob_of_states_of_time])
@@ -645,7 +641,6 @@ class GibbsSampler() :
                 else :
                     # when we want to calculate only transitions (deviation of prob from expected sample count)
                     f_curr[st] =  prev_f_sum
-
             fwd.append(f_curr)
             f_prev = f_curr
 
@@ -1003,13 +998,17 @@ class GibbsSampler() :
 
         return states_count,observations_sum
 
-    def impute_emissions_table_with_zeros(self, emissions_table,all_relvent_observations) :
+    def impute_emissions_table_with_zeros(self, emissions_table,all_relvent_observations,impute_zeros = False) :
         all_possible_emissions = set(chain(*all_relvent_observations))
         new_emissions_table = emissions_table
         for _emm in all_possible_emissions :
             for k,v in emissions_table.items():
                 if _emm not in v.keys() :
-                    new_emissions_table[k][_emm] = 0
+                    new_emissions_table[k][_emm] = 0 if not impute_zeros else 1e-9
+
+        if impute_zeros :
+            return {k:{kk:(vv if vv != 0 else 1e-9) for kk,vv in v.items()} for k,v in new_emissions_table.items()}
+
         return new_emissions_table
     # endregion
 

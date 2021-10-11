@@ -95,7 +95,7 @@ class Simulator_for_Gibbs():
         return _traj,_traj_states
 
     @staticmethod
-    def sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs):
+    def  sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs):
         all_relvent_observations_and_ws = []
         for vec in all_full_sampled_trajs:
             binom_dist = binom(len(vec), p_prob_of_observation)
