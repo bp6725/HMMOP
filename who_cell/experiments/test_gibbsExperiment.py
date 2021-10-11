@@ -21,14 +21,14 @@ class TestGibbsExperiment(TestCase):
             "inner_outer_trans_probs_ratio": [300],
             'n_states': [10],
             'sigma': [0.1],
-            'number_of_smapled_traj': [10],
+            'number_of_smapled_traj': [50],
             'p_prob_of_observation': [0.5],
             'N_itres': [2],
             'is_mh': [False],
-            "is_known_W":[True],
+            "is_known_W":[False],
             'w_smapler_n_iter': [100],
             'is_multi_process':[False],
-            "use_pomegranate":[True,False]
+            "use_pomegranate":[True]
             }
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)
@@ -52,7 +52,7 @@ class TestGibbsExperiment(TestCase):
             [few_obs_test_set_words, start_probs, emms_probs, number_of_iters, _known_N] = pickle.load( f)
 
         gs = GibbsSampler(2,5)
-        res = gs.sample_known_emissions(few_obs_test_set_words, start_probs, emms_probs, number_of_iters, N=_known_N)
+        res = gs.sample_known_emissions(few_obs_test_set_words, start_probs, emms_probs, number_of_iters, N=30)
 
 
     def test_Penn_POS(self):

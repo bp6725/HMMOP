@@ -160,7 +160,7 @@ class GibbsExperiment() :
         N = params['N'] if  params['is_few_observation_model'] else 2
         sample_missing_with_prior  = params["sample_missing_with_prior"] if "sample_missing_with_prior" in params.keys() else False
         is_known_W = params['is_known_W'] if "is_known_W" in params.keys() else False
-        is_multi_process = params['is_multi_process'] if "is_multi_process" in params.keys() else False
+        is_multi_process = params['is_multi_process'] if "is_multi_process" in params.keys() else True
         use_pomegranate = params['use_pomegranate'] if "use_pomegranate" in params.keys() else False
 
 

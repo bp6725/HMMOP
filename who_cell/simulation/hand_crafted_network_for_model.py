@@ -108,7 +108,7 @@ class HandCraftedNetworkForModel() :
                 best_paths.append(
                     ([pomstates_name_to_state_map[model.states[s].name] for s in best_path], best_log_pos))
             else :
-                best_log_pos, best_path = model.viterbi(test_sample)
+                best_log_pos, best_path = model.no_transitions_viterbi(test_sample)
                 if np.isinf(best_log_pos):
                     pass
                     # print(test_sample)
