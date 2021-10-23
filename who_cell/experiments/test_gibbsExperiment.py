@@ -28,7 +28,8 @@ class TestGibbsExperiment(TestCase):
             "is_known_W":[False],
             'w_smapler_n_iter': [100],
             'is_multi_process':[False],
-            "use_pomegranate":[True]
+            "use_pomegranate":[False],
+            "N_guess" : [50]
             }
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)

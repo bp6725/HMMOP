@@ -1004,7 +1004,7 @@ class GibbsSampler() :
         for _emm in all_possible_emissions :
             for k,v in emissions_table.items():
                 if _emm not in v.keys() :
-                    new_emissions_table[k][_emm] = 0 if not impute_zeros else 1e-9
+                    new_emissions_table[k][_emm] = 0 if not impute_zeros else 1e-6
 
         if impute_zeros :
             return {k:{kk:(vv if vv != 0 else 1e-9) for kk,vv in v.items()} for k,v in new_emissions_table.items()}
