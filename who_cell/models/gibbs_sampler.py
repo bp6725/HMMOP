@@ -43,7 +43,12 @@ class GibbsSampler() :
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
         curr_trans = self.build_initial_transitions(states)
 
-        curr_w = [sorted(np.random.choice(range(max(N,len(obs))), len(obs), replace=False)) for obs in all_relvent_observations]
+        if type(N) is list :
+            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs,_N in
+                      zip(all_relvent_observations,N)]
+        else:
+            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                  all_relvent_observations]
 
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
         curr_walk,alpha= self.sample_walk_from_params(all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
