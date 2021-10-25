@@ -155,9 +155,10 @@ class GibbsExperiment() :
         return True
 
     @staticmethod
-    def extrect_params(params):
+    def extrect_params(params,all_relvent_observations):
         transition_sampling_profile = params["is_only_seen"]
-        N = params['N'] if  params['is_few_observation_model'] else 2
+        N = params['N'] if "N_guess" not in params.keys() else [int(len(v)*params["N_guess"]) for v in all_relvent_observations]
+        N = N if  params['is_few_observation_model'] else 2
         sample_missing_with_prior  = params["sample_missing_with_prior"] if "sample_missing_with_prior" in params.keys() else False
         is_known_W = params['is_known_W'] if "is_known_W" in params.keys() else False
         is_multi_process = params['is_multi_process'] if "is_multi_process" in params.keys() else True
@@ -172,7 +173,7 @@ class GibbsExperiment() :
                                           w_smapler_n_iter = 100,known_w = None):
 
         transition_sampling_profile, N, sample_missing_with_prior,\
-        is_known_W,is_multi_process,use_pomegranate = GibbsExperiment.extrect_params(params)
+        is_known_W,is_multi_process,use_pomegranate = GibbsExperiment.extrect_params(params,all_relvent_observations)
 
         if not GibbsExperiment._is_valid_experiment(params) : return None
         print(params)

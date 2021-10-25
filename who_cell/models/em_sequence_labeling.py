@@ -145,7 +145,7 @@ class EmSequenceLabeling():
         best_st = None
         # Get most probable state and its backtrack
         for st, data in V[-1].items():
-            if data["prob"] > max_prob:
+            if data["prob"] >= max_prob:
                 max_prob = data["prob"]
                 best_st = st
         opt.append(best_st)
@@ -154,6 +154,8 @@ class EmSequenceLabeling():
 
         # Follow the backtrack till the first observation
         for t in range(len(V) - 2, -1, -1):
+            if previous is None :
+                print("---" + str(previous))
             opt.insert(0, V[t + 1][previous]["prev"])
             previous = V[t + 1][previous]["prev"]
 

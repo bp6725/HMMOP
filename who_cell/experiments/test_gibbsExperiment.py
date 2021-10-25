@@ -14,7 +14,7 @@ class TestGibbsExperiment(TestCase):
             'known_mues': [True],
             "is_few_observation_model": [True,False],
             "is_only_seen": ['all'],
-            'N': [35],
+            'N': [30],
             'd': [9],
             "non_cons_sim":[False],
             "bipartite": [False],
@@ -22,13 +22,14 @@ class TestGibbsExperiment(TestCase):
             'n_states': [10],
             'sigma': [0.1],
             'number_of_smapled_traj': [50],
-            'p_prob_of_observation': [0.5],
-            'N_itres': [2],
+            'p_prob_of_observation': [0.5,(0.5,0.1),(0.65,0.35,0.3,0.7)],
+            'N_itres': [5],
             'is_mh': [False],
             "is_known_W":[False],
-            'w_smapler_n_iter': [100],
-            'is_multi_process':[False],
-            "use_pomegranate":[True]
+            'w_smapler_n_iter': [80],
+            'is_multi_process':[True],
+            "use_pomegranate":[False],
+            "N_guess" : [1.2,2,4]
             }
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)

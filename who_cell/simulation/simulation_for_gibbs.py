@@ -95,7 +95,7 @@ class Simulator_for_Gibbs():
         return _traj,_traj_states
 
     @staticmethod
-    def  sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs):
+    def bernoulli_experiments(p_prob_of_observation, all_full_sampled_trajs):
         all_relvent_observations_and_ws = []
         for vec in all_full_sampled_trajs:
             binom_dist = binom(len(vec), p_prob_of_observation)
@@ -108,6 +108,65 @@ class Simulator_for_Gibbs():
         all_ws = [ro[1] for ro in all_relvent_observations_and_ws]
 
         return all_relvent_observations, all_ws
+
+    @staticmethod
+    def bernoulli_experiments_pc_changes(p_mean, p_std, all_full_sampled_trajs):
+        all_relvent_observations_and_ws = []
+        for vec in all_full_sampled_trajs:
+            p_prob_of_observation = np.random.normal(p_mean, p_std, 1)
+            p_prob_of_observation = p_prob_of_observation if p_prob_of_observation > 0.01 else 0.01
+            p_prob_of_observation = p_prob_of_observation if p_prob_of_observation < 1 else 1
+
+            binom_dist = binom(len(vec), p_prob_of_observation)
+            n_of_obs = binom_dist.rvs(1)
+            n_of_obs = n_of_obs if n_of_obs > 2 else 2
+            _new_vec = Simulator_for_Gibbs._sample_n_points_from_traj(vec, n_of_obs)
+            all_relvent_observations_and_ws.append(_new_vec)
+
+        all_relvent_observations = [ro[0] for ro in all_relvent_observations_and_ws]
+        all_ws = [ro[1] for ro in all_relvent_observations_and_ws]
+
+        return all_relvent_observations, all_ws
+
+    @staticmethod
+    def bernoulli_experiments_pc_mm(pp, pq, qp, qq, all_full_sampled_trajs):
+        d1 = DiscreteDistribution({'p': 0.5, 'q': 0.5})
+        d2 = ConditionalProbabilityTable([['p', 'p', pp],
+                                          ['p', 'q', pq],
+                                          ['q', 'p', qp],
+                                          ['q', 'q', qq]], [d1])
+        markov_model = MarkovChain([d1, d2])
+
+        all_relvent_observations_and_ws = []
+        for vec in all_full_sampled_trajs:
+            removel_seq = markov_model.sample(len(vec))
+            obs = [vec[i] for i, is_seen in enumerate(removel_seq) if is_seen == 'p']
+            ws = [i for i, is_seen in enumerate(removel_seq) if is_seen == 'p']
+            all_relvent_observations_and_ws.append((obs, ws))
+
+        all_relvent_observations = [ro[0] for ro in all_relvent_observations_and_ws]
+        all_ws = [ro[1] for ro in all_relvent_observations_and_ws]
+
+        return all_relvent_observations, all_ws
+
+    @staticmethod
+    def  sample_traj_for_few_obs(p_params,all_full_sampled_trajs):
+        if ((type(p_params) is float) or (type(p_params) is int)):
+            p_prob_of_observation = p_params
+            return Simulator_for_Gibbs.bernoulli_experiments(p_prob_of_observation,all_full_sampled_trajs)
+
+        if len(p_params) == 1:
+            p_prob_of_observation = p_params[0]
+            return Simulator_for_Gibbs.bernoulli_experiments(p_prob_of_observation,all_full_sampled_trajs)
+
+        if len(p_params) == 2 :
+            p_mean,p_std  = p_params
+            return Simulator_for_Gibbs.bernoulli_experiments_pc_changes(p_mean,p_std,all_full_sampled_trajs)
+
+        if len(p_params) == 4 :
+            pp,pq,qp,qq  = p_params
+            return Simulator_for_Gibbs.bernoulli_experiments_pc_mm(pp,pq,qp,qq,all_full_sampled_trajs)
+
 
     @Infras.storage_cache
     def simulate_observations(self,pome_model,mutual_model_params_dict,params_signature,from_pre_sampled_traj = False):
