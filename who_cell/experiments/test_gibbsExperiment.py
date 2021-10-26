@@ -22,14 +22,15 @@ class TestGibbsExperiment(TestCase):
             'n_states': [10],
             'sigma': [0.1],
             'number_of_smapled_traj': [50],
-            'p_prob_of_observation': [0.5,(0.5,0.1),(0.65,0.35,0.3,0.7)],
+            'p_prob_of_observation': [0.5,(0.5,0.1)],
             'N_itres': [5],
             'is_mh': [False],
             "is_known_W":[False],
             'w_smapler_n_iter': [80],
-            'is_multi_process':[True],
+            'is_multi_process':[False],
             "use_pomegranate":[False],
-            "N_guess" : [1.2,2,4]
+            "N_guess" : [1.2,2,4],
+            # "numerical_reconstruction_pc":[-1,0.5]
             }
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)

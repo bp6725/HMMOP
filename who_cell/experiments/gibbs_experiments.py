@@ -20,11 +20,11 @@ from IPython.display import display
 import matplotlib.pyplot as plt
 from toolz import unique
 
-
 from numba import jit
 import numba
 
 from tqdm import tqdm
+from who_cell.models.numerical_correction import NumericalCorrection
 from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
 from who_cell.models.gibbs_sampler import GibbsSampler
 from who_cell.experiments.experiment_report import ExperimentReport
@@ -127,21 +127,51 @@ class GibbsExperiment() :
                     with open(_cache_path,'wb') as f :
                         pickle.dump(result,f)
             if result is None : continue
+
             #region update result param
-            result['mutual_params'] = mutual_model_params_dict
-            result['hyper_params'] = _hyper_param_set
-            result["all_full_sampled_trajs"] = all_full_sampled_trajs
-            result["all_full_sampled_trajs_states"] =  all_full_sampled_trajs_states
-            result["all_relvent_sampled_trajs_states"] = all_relvent_sampled_trajs_states
-            result['known_ws'] = known_ws
-            result["simulator"] = simulator
-            result["sigmas"] = simulator.sigmas
-            result["original_pome_model"] =  pome_results["model"]
-            result["state_to_distrbution_mapping"] =  pome_results["state_to_distrbution_mapping"]
-            result['start_probabilites']= pome_results['start_probabilites']
+            _result = copy.copy(result)
+            _result['mutual_params'] = mutual_model_params_dict
+            _result['hyper_params'] = _hyper_param_set
+            _result["all_full_sampled_trajs"] = all_full_sampled_trajs
+            _result["all_full_sampled_trajs_states"] =  all_full_sampled_trajs_states
+            _result["all_relvent_sampled_trajs_states"] = all_relvent_sampled_trajs_states
+            _result['known_ws'] = known_ws
+            _result["simulator"] = simulator
+            _result["sigmas"] = simulator.sigmas
+            _result["original_pome_model"] =  pome_results["model"]
+            _result["state_to_distrbution_mapping"] =  pome_results["state_to_distrbution_mapping"]
+            _result['start_probabilites']= pome_results['start_probabilites']
             #endregion
 
-            all_results_of_model[exp_idx] = result
+            all_results_of_model[exp_idx] = _result
+
+            #region update results params if numerical reconstruction
+            if "numerical_reconstruction_pc" in _hyper_param_set.keys() :
+                if _hyper_param_set["numerical_reconstruction_pc"] != -1 :
+                    _result = copy.copy(result)
+
+                    _result['all_transitions'] = list(
+                        map(lambda x: NumericalCorrection.reconstruct_full_transitions_dict_from_few(x.copy(),
+                                                                                                     _hyper_param_set[
+                                                                                                         'numerical_reconstruction_pc'],
+                                                                                                     pome_results['start_probabilites']),
+                            _result['all_transitions']))
+
+                    _result['mutual_params'] = copy.copy(mutual_model_params_dict)
+                    _result['hyper_params'] = copy.copy(_hyper_param_set)
+                    _result["all_full_sampled_trajs"] = copy.copy(all_full_sampled_trajs)
+                    _result["all_full_sampled_trajs_states"] = copy.copy(all_full_sampled_trajs_states)
+                    _result["all_relvent_sampled_trajs_states"] = copy.copy(all_relvent_sampled_trajs_states)
+                    _result['known_ws'] = copy.copy(known_ws)
+                    _result["simulator"] = copy.copy(simulator)
+                    _result["sigmas"] = copy.copy(simulator.sigmas)
+                    _result["original_pome_model"] = copy.copy(pome_results["model"])
+                    _result["state_to_distrbution_mapping"] = copy.copy(pome_results["state_to_distrbution_mapping"])
+                    _result['start_probabilites'] = copy.copy(pome_results['start_probabilites'])
+
+                    all_results_of_model[len(hyper_params_sets) + exp_idx] = _result
+                    # endregion
+
         return all_results_of_model
 
     @staticmethod
@@ -162,6 +192,11 @@ class GibbsExperiment() :
             return False
         if ((params['is_few_observation_model'] == False) and (params["is_known_W"] == True)):
             return False
+
+        if "numerical_reconstruction_pc" in params.keys() :
+            if ((params['is_few_observation_model'] == True) and (params["numerical_reconstruction_pc"] != -1)):
+                return False
+
         return True
 
     @staticmethod
