@@ -18,6 +18,7 @@ import pickle as pkl
 from ast import literal_eval as make_tuple
 from IPython.display import display
 import matplotlib.pyplot as plt
+from toolz import unique
 
 
 from numba import jit
@@ -57,14 +58,23 @@ class GibbsExperiment() :
     def _return_params_sets(mutual_model_params_dict,hyper_params_dict):
         hyper_params_sets = list(itertools.product(*[[(k, vv) for vv in v] for k, v in hyper_params_dict.items()]))
 
+        new_hyper_sets = []
+        for set in hyper_params_sets:
+            if (any(list(map(lambda x: (('is_few_observation_model' == x[0]) and (False == x[1])), set)))):
+                new_set = (list(map(lambda x: (x[0], x[1] if x[0] != 'N_guess' else 1), set)))
+            else:
+                new_set = set
+            new_hyper_sets.append(new_set)
+        new_hyper_sets = list(map(list, unique(map(tuple, new_hyper_sets))))
+
         if 'number_of_smapled_traj' in hyper_params_dict.keys():
             max_number_of_sampled_traj = max([[vv for kk, vv in v if kk == 'number_of_smapled_traj'][0] for v in
-                                              hyper_params_sets])
+                                              new_hyper_sets])
         else:
             max_number_of_sampled_traj = mutual_model_params_dict['number_of_smapled_traj']
 
 
-        return hyper_params_sets, max_number_of_sampled_traj
+        return new_hyper_sets, max_number_of_sampled_traj
 
     @staticmethod
     def _return_hyper_params_set(hyper_param_set, mutual_model_params_dict, simulator) :
