@@ -7,6 +7,10 @@ class NumericalCorrection():
     def __init__(self):
         pass
 
+    def em_gibbs_numerical_reconstruction(self, all_relvent_observations, start_probs,
+                                          known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
+        pass
+
     @staticmethod
     def rebuild_transitions_dict(transitions, all_states):
         _transitions = {str(k): {str(kk): vv for kk, vv in v.items() if not kk in ["start", 'end']} for

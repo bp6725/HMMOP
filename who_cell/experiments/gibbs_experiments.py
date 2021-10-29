@@ -146,13 +146,13 @@ class GibbsExperiment() :
             all_results_of_model[exp_idx] = _result
 
             #region update results params if numerical reconstruction
-            if "numerical_reconstruction_pc" in _hyper_param_set.keys() :
-                if _hyper_param_set["numerical_reconstruction_pc"] != -1 :
+            if "numerical_reconstruction_pc" in combined_params.keys() :
+                if combined_params["numerical_reconstruction_pc"] != -1 :
                     _result = copy.copy(result)
 
                     _result['all_transitions'] = list(
                         map(lambda x: NumericalCorrection.reconstruct_full_transitions_dict_from_few(x.copy(),
-                                                                                                     _hyper_param_set[
+                                                                                                     combined_params[
                                                                                                          'numerical_reconstruction_pc'],
                                                                                                      pome_results['start_probabilites']),
                             _result['all_transitions']))
@@ -192,7 +192,6 @@ class GibbsExperiment() :
             return False
         if ((params['is_few_observation_model'] == False) and (params["is_known_W"] == True)):
             return False
-
         if "numerical_reconstruction_pc" in params.keys() :
             if ((params['is_few_observation_model'] == True) and (params["numerical_reconstruction_pc"] != -1)):
                 return False
