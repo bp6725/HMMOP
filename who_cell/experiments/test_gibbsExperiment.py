@@ -65,7 +65,7 @@ class TestGibbsExperiment(TestCase):
             'N_itres': [10],
             'w_smapler_n_iter': [10]}
 
-        GibbsExperiment.run_multi_params_and_return_results(params_dict,model_defining_params_pre)
+        all_models_results = GibbsExperiment.run_multi_params_and_return_results(params_dict,model_defining_params_pre)
 
     def test_POS(self):
         import pickle
