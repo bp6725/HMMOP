@@ -19,6 +19,7 @@ from ast import literal_eval as make_tuple
 from IPython.display import display
 import matplotlib.pyplot as plt
 from toolz import unique
+from who_cell.models.numerical_correction import NumericalCorrection
 
 from numba import jit
 import numba
@@ -207,9 +208,10 @@ class GibbsExperiment() :
         is_known_W = params['is_known_W'] if "is_known_W" in params.keys() else False
         is_multi_process = params['is_multi_process'] if "is_multi_process" in params.keys() else True
         use_pomegranate = params['use_pomegranate'] if "use_pomegranate" in params.keys() else False
+        is_numerical_reconstruction = params[
+            "is_numerical_reconstruction_method"] if "is_numerical_reconstruction_method" in params.keys() else False
 
-
-        return transition_sampling_profile,N,sample_missing_with_prior,is_known_W,is_multi_process,use_pomegranate
+        return transition_sampling_profile,N,sample_missing_with_prior,is_known_W,is_multi_process,use_pomegranate,is_numerical_reconstruction
 
     @staticmethod
     def solve_return_results_mutual_model(params,pome_results,
@@ -217,7 +219,7 @@ class GibbsExperiment() :
                                           w_smapler_n_iter = 100,known_w = None):
 
         transition_sampling_profile, N, sample_missing_with_prior,\
-        is_known_W,is_multi_process,use_pomegranate = GibbsExperiment.extrect_params(params,all_relvent_observations)
+        is_known_W,is_multi_process,use_pomegranate,is_numerical_reconstruction = GibbsExperiment.extrect_params(params,all_relvent_observations)
 
         if not GibbsExperiment._is_valid_experiment(params) : return None
         print(params)
@@ -238,19 +240,39 @@ class GibbsExperiment() :
             sampled_mues = None
 
         elif not is_known_W  :
-            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
-                               mues_for_sampler, sigmas_for_sampler, params['N_itres'],
-                               w_smapler_n_iter=w_smapler_n_iter,
-                               is_mh=params["is_mh"])
-            sampled_transitions_dict = all_sampled_transitions[-1]
-            sampled_mues = all_mues[-1]
+            if not is_numerical_reconstruction :
+                all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
+                    sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
+                                   mues_for_sampler, sigmas_for_sampler, params['N_itres'],
+                                   w_smapler_n_iter=w_smapler_n_iter,
+                                   is_mh=params["is_mh"])
+                sampled_transitions_dict = all_sampled_transitions[-1]
+                sampled_mues = all_mues[-1]
+            else :
+                gnc = NumericalCorrection(multi_process = is_multi_process)
+                all_transitions = gnc.em_gibbs_numerical_reconstruction(all_relvent_observations,
+                                                                        pome_results['start_probabilites'],
+                                                                        mues_for_sampler, sigmas_for_sampler,
+                                                                        params['N_itres'], w_smapler_n_iter=100, N=N,
+                                                                        is_mh=False)
+                all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws = None, None, None, None, None
+                sampled_transitions_dict = None
+                sampled_mues = None
 
         else :
-            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-            sampler.sample_known_W(all_relvent_observations, pome_results['start_probabilites'],
-                           mues_for_sampler,sigmas_for_sampler,params['N_itres'],known_w, w_smapler_n_iter=w_smapler_n_iter,
-                           is_mh=params["is_mh"])
+            if not is_numerical_reconstruction :
+                all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
+                sampler.sample_known_W(all_relvent_observations, pome_results['start_probabilites'],
+                               mues_for_sampler,sigmas_for_sampler,params['N_itres'],known_w, w_smapler_n_iter=w_smapler_n_iter,
+                               is_mh=params["is_mh"])
+            else :
+                gnc = NumericalCorrection(multi_process = is_multi_process)
+                all_transitions = gnc.em_gibbs_numerical_reconstruction(all_relvent_observations,
+                                                                        pome_results['start_probabilites'],
+                                                                        mues_for_sampler, sigmas_for_sampler,
+                                                                        params['N_itres'], w_smapler_n_iter=100, N=N,
+                                                                        is_mh=False)
+                all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws = None, None, None, None, None
 
 
             sampled_transitions_dict = all_sampled_transitions[-1]

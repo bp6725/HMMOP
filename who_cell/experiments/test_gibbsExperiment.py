@@ -12,9 +12,9 @@ class TestGibbsExperiment(TestCase):
         model_defining_params_pre = ['N', "d", "n_states",'is_acyclic','sigma','bipartite']
         params_dict = {
             'known_mues': [True],
-            "is_few_observation_model": [False],
+            "is_few_observation_model": [True],
             "is_only_seen": ['all'],
-            'N': [35],
+            'N': [15],
             'd': [9],
             "non_cons_sim": [False],
             "bipartite": [False],
@@ -29,7 +29,8 @@ class TestGibbsExperiment(TestCase):
             'w_smapler_n_iter': [80],
             'is_multi_process': [False],
             "use_pomegranate": [False],
-            "numerical_reconstruction_pc": [0.5]
+            "numerical_reconstruction_pc": [-1],
+            "is_numerical_reconstruction_method" : [True]
         }
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)

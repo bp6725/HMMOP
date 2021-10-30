@@ -180,7 +180,7 @@ class GibbsSampler() :
                 seq_probs.append(seq_prob)
                 pbar.update(1)
 
-        return all_states,all_observations_sum, None,all_mues,all_ws,all_transitions
+        return all_states,all_observations_sum, seq_probs,all_mues,all_ws,all_transitions
 
     def sample_known_W(self, all_relvent_observations, start_probs,
                known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False):
