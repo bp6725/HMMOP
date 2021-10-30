@@ -22,8 +22,8 @@ class NumericalCorrection():
             _,_, seq_probs,_,_,_= gs.sample_known_transitions( all_relvent_observations,
                                                            gussed_reconstructed_transitions, start_probs,
                                      known_mues, sigmas, Ng_iters, w_smapler_n_iter=w_smapler_n_iter, is_mh=is_mh)
-            print((pc,sum(seq_probs[-1])))
-            results.append((pc,sum(seq_probs[-1])))
+            print((pc,seq_probs[-1]))
+            results.append((pc,seq_probs[-1]))
 
         best_results = None
         best_prob = 0
@@ -37,7 +37,7 @@ class NumericalCorrection():
                                                                    gussed_reconstructed_transitions, start_probs,
                                                                    known_mues, sigmas, Ng_iters, w_smapler_n_iter=w_smapler_n_iter,
                                                                     is_mh=is_mh)
-            prob = sum(seq_probs[-1])
+            prob = seq_probs[-1]
             if prob > best_prob :
                 best_prob = prob
                 best_results = gussed_reconstructed_transitions
