@@ -33,6 +33,25 @@ class TestGibbsExperiment(TestCase):
             "is_numerical_reconstruction_method" : [True]
         }
 
+        model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite']
+        params_dict = {
+            'is_acyclic': [True],
+            'known_mues': [True],
+            "is_few_observation_model": [True],
+            "is_only_seen": ["all"],
+            'N': [35],
+            'd': [9],
+            "bipartite": [False],
+            "inner_outer_trans_probs_ratio": [50],
+            'n_states': [10],
+            'sigma': [0.1],
+            'number_of_smapled_traj': [5000],
+            'p_prob_of_observation': [0.5],
+            'N_itres': [7],
+            'is_mh': [False],
+            'is_known_W': [False],
+            'w_smapler_n_iter': [80],
+            "is_numerical_reconstruction_method": [True]}
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)
 
     def test_run_multi_params_and_return_results(self):
