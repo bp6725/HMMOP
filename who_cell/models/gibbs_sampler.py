@@ -105,6 +105,83 @@ class GibbsSampler() :
                 pbar.update(1)
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
+    def sample_known_transitions(self, all_relvent_observations,curr_trans, start_probs,
+               known_mues,sigmas, Ng_iters, w_smapler_n_iter = 100,N=None,is_mh = False):
+        N = self.N if N is None else N
+        states = list(set(list(start_probs.keys()) + ['start','end']))
+        state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
+                                                                                                     states)
+
+        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) -2) ) if not known_mues else None
+        curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
+
+        if type(N) is list :
+            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs,_N in
+                      zip(all_relvent_observations,N)]
+        else:
+            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                  all_relvent_observations]
+
+        state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
+        curr_walk,alpha= self.sample_walk_from_params(all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
+                                                 curr_w, curr_trans)
+
+        sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w,
+                                                                         state_to_distrbution_param_mapping,
+                                                                         curr_mus,sigmas)
+
+        seq_prob = Utils._calc_probability_function_for_alpha(all_relvent_observations, curr_trans, curr_w, curr_walk,
+                                                           curr_mu=curr_mus,
+                                                           known_emissions=state_to_distrbution_param_mapping,
+                                                           is_known_emissions=False)
+
+        all_transitions = [curr_trans]
+        all_states = [sampled_states]
+        all_observations_sum = [observations_sum]
+        all_mues = [curr_mus]
+        all_ws = [curr_w]
+        seq_probs = [seq_prob]
+        with tqdm(total=Ng_iters) as pbar:
+            for i in range(Ng_iters):
+                curr_mus = self.sample_mus_from_params(sampled_states, observations_sum,priors, sigmas,known_mues)
+                state_to_distrbution_param_mapping = self._update_distributions_params(
+                    state_to_distrbution_param_mapping, curr_mus)
+
+                curr_w,_ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
+                                                      state_to_distrbution_param_mapping,N,
+                                                      n_iters=w_smapler_n_iter,
+                                                      curr_params=[curr_trans, curr_w, curr_walk, None, state_to_distrbution_param_mapping],
+                                                      stage_name="w"  if is_mh else "no_mh",
+                                                      observations=all_relvent_observations)
+
+                curr_walk,_ = self.sample_walk_from_params(all_relvent_observations,N,
+                                                         state_to_distrbution_param_mapping,start_probs,
+                                                         curr_w, curr_trans,
+                                                           curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                      state_to_distrbution_param_mapping],
+                                                         stage_name="walk"  if is_mh else "no_mh",
+                                                         observations=all_relvent_observations)
+
+                sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,
+                                                                                 curr_w,state_to_distrbution_param_mapping,
+                                                                                 curr_mus,sigmas)
+
+                seq_prob = Utils._calc_probability_function_for_alpha(all_relvent_observations, curr_trans, curr_w,
+                                                                      curr_walk,
+                                                                      curr_mu=curr_mus,
+                                                                      known_emissions=state_to_distrbution_param_mapping,
+                                                                      is_known_emissions=False)
+
+                all_transitions.append(curr_trans)
+                all_states.append(sampled_states)
+                all_observations_sum.append(observations_sum)
+                all_mues.append(curr_mus)
+                all_ws.append(curr_w)
+                seq_probs.append(seq_prob)
+                pbar.update(1)
+
+        return all_states,all_observations_sum, seq_probs,all_mues,all_ws,all_transitions
+
     def sample_known_W(self, all_relvent_observations, start_probs,
                known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False):
         print("start known W")

@@ -12,26 +12,26 @@ class TestGibbsExperiment(TestCase):
         model_defining_params_pre = ['N', "d", "n_states",'is_acyclic','sigma','bipartite']
         params_dict = {
             'known_mues': [True],
-            "is_few_observation_model": [True,False],
+            "is_few_observation_model": [True],
             "is_only_seen": ['all'],
-            'N': [30],
+            'N': [15],
             'd': [9],
-            "non_cons_sim":[False],
+            "non_cons_sim": [False],
             "bipartite": [False],
             "inner_outer_trans_probs_ratio": [300],
             'n_states': [10],
             'sigma': [0.1],
             'number_of_smapled_traj': [50],
-            'p_prob_of_observation': [0.5,(0.5,0.1)],
-            'N_itres': [5],
+            'p_prob_of_observation': [0.5, (0.5, 0.1), (0.55, 0.45, 0.45, 0.55)],
+            'N_itres': [10],
             'is_mh': [False],
-            "is_known_W":[False],
+            "is_known_W": [False],
             'w_smapler_n_iter': [80],
-            'is_multi_process':[False],
-            "use_pomegranate":[False],
-            "N_guess" : [1.2,2,4],
-            # "numerical_reconstruction_pc":[-1,0.5]
-            }
+            'is_multi_process': [False],
+            "use_pomegranate": [False],
+            "numerical_reconstruction_pc": [-1],
+            "is_numerical_reconstruction_method" : [True]
+        }
 
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)
 
