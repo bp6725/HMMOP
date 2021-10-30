@@ -41,7 +41,8 @@ class NumericalCorrection():
                 best_prob = prob
                 best_results = gussed_reconstructed_transitions
 
-        return best_results
+        print((l_pc, u_pc))
+        return [best_results]
 
     def return_best_window(self,results_list):
         probs = [p for _,p in results_list]
