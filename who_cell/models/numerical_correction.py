@@ -98,4 +98,5 @@ class NumericalCorrection():
         numrical_full_matrix = NumericalCorrection.reconstruct_full_transitions_matrix_from_few(few_transition_matrix, pc_guess)
         numrical_full_matrix_df = pd.DataFrame(columns=df.columns, index=df.index, data=numrical_full_matrix)
         #     print(df - numrical_full_matrix_df)
-        return numrical_full_matrix_df.T.to_dict()
+        numrical_full_matrix_dict = numrical_full_matrix_df.T.to_dict()
+        return {k:{kk:(vv if vv >0 else 0) for kk,vv in v.items} for k,v in numrical_full_matrix_dict.items()}

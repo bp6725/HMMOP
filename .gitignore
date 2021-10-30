@@ -24,3 +24,5 @@ benchmarks/bipartite/
 benchmarks/simulations/
 /.idea/deployment.xml
 /benchmarks/
+/.idea/
+/benchmarks/
