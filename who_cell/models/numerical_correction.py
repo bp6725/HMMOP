@@ -22,7 +22,7 @@ class NumericalCorrection():
             _,_, seq_probs,_,_,_= gs.sample_known_transitions( all_relvent_observations,
                                                            gussed_reconstructed_transitions, start_probs,
                                      known_mues, sigmas, Ng_iters, w_smapler_n_iter=w_smapler_n_iter, is_mh=is_mh)
-            print((pc,seq_probs[-1]))
+            print((pc,seq_probs))
             results.append((pc,seq_probs[-1]))
 
         best_results = None
