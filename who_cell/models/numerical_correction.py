@@ -16,7 +16,7 @@ class NumericalCorrection():
 
         results = []
         gs = GibbsSampler(N,multi_process=self.multi_process)
-        for pc in np.linspace(0.1,1,5) :
+        for pc in np.linspace(0.1,1,6) :
             gussed_reconstructed_transitions = NumericalCorrection.reconstruct_full_transitions_dict_from_few(naive_transitions_matrix,
                                                                                                               pc,start_probs)
             _,_, seq_probs,_,_,_= gs.sample_known_transitions( all_relvent_observations,
@@ -27,7 +27,7 @@ class NumericalCorrection():
 
         best_results = None
         best_prob = 0
-
+        print(f"results : {results}")
         l_pc,u_pc = self.return_best_window(results)
         for pc in np.linspace(l_pc, u_pc, 5):
             gussed_reconstructed_transitions = NumericalCorrection.reconstruct_full_transitions_dict_from_few(
