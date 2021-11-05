@@ -61,7 +61,7 @@ class Utils() :
 
             _prob = Utils.__calc_probability_function_per_traj(traj, curr_trans, _w, _walk, curr_mu, known_emissions,is_known_emissions)
             probs_per_traj.append(_prob)
-        return sum(probs_per_traj)
+        return np.exp(sum(probs_per_traj)/len(all_relvent_observations))
 
     @staticmethod
     def normpdf(x, mean, sd):
@@ -83,14 +83,17 @@ class Utils() :
         if known_emissions is not None:
             if is_known_emissions :
                 emissions_prob = [known_emissions[_walk[__w]][traj[k]] for k,__w in enumerate(_w)]
+                log_emissions_prob = np.log(emissions_prob)
             else :
                 emissions_prob = [Utils.normpdf(traj[k],known_emissions[_walk[__w]][0],known_emissions[_walk[__w]][1])
                                   for k, __w in enumerate(_w)]
+                log_emissions_prob = np.log(emissions_prob)
         elif curr_mu is not None:
             raise NotImplementedError("lazy you")
         transitions_prob = [(_trans[_f][_t] if _t in _trans[_f].keys() else 0) for _f, _t in zip(_walk, _walk[1:])]
+        log_transitions_prob = np.log(transitions_prob)
 
-        return reduce(lambda x, y: x * y, emissions_prob) * reduce(lambda x, y: x * y, transitions_prob)
+        return reduce(lambda x, y: x + y, log_transitions_prob)  #* reduce(lambda x, y: x + y, log_emissions_prob)
 
     @staticmethod
     def _extrect_states_transitions_dict_from_pome_model( model, states=None):
@@ -124,3 +127,21 @@ class Utils() :
             else:
                 transition_dict[_from][_to] = _weight
         return transition_dict, final_states
+
+    @staticmethod
+    def calc_l1_and_cs_distance(org,comp):
+        __l1_distance = lambda dist, state, known: abs(dist[state] - known) if state in dist.keys() else known
+        __cross_entropy_distance = lambda dist, state, known: -1 * known * np.log(
+            dist[state]) if state in dist.keys() else (-1 * known * np.log(0.0001))
+
+        _l1_distance = lambda known_dist, comp_dist: sum(
+            ([__l1_distance(comp_dist, state, prob) for state, prob in known_dist.items()]))
+        _cross_entropy_distance = lambda known_dist, comp_dist: sum(
+            [__cross_entropy_distance(comp_dist, state, prob) for state, prob in known_dist.items()])
+
+        l1_distance = lambda known_trns, comp_trans: np.mean(
+            [_l1_distance(dist, comp_trans[state]) for state, dist in known_trns.items()])
+        cross_entropy_distance = lambda known_trns, comp_trans: np.mean(
+            [_cross_entropy_distance(dist, comp_trans[state]) for state, dist in known_trns.items()])
+
+        return (l1_distance(org,comp),cross_entropy_distance(org,comp))

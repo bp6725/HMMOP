@@ -11,19 +11,19 @@ class NumericalCorrection():
                                           known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
         gs = GibbsSampler(2,multi_process=self.multi_process)
         _, _, _, _, _, all_transitions = gs.sample( all_relvent_observations, start_probs,
-               known_mues,sigmas, 100 if Ng_iters < 100 else Ng_iters, w_smapler_n_iter,2,is_mh)
+               known_mues,sigmas, 50 if Ng_iters < 50 else Ng_iters, w_smapler_n_iter,2,is_mh)
         naive_transitions_matrix = all_transitions[-1]
 
         results = []
         gs = GibbsSampler(N,multi_process=self.multi_process)
-        for pc in np.linspace(0.1,1,6) :
+        for pc in np.linspace(0.1,1,10) :
             gussed_reconstructed_transitions = NumericalCorrection.reconstruct_full_transitions_dict_from_few(naive_transitions_matrix,
                                                                                                               pc,start_probs)
             _,_, seq_probs,_,_,_= gs.sample_known_transitions( all_relvent_observations,
                                                            gussed_reconstructed_transitions, start_probs,
                                      known_mues, sigmas, Ng_iters, w_smapler_n_iter=w_smapler_n_iter, is_mh=is_mh)
-            print((pc,seq_probs))
-            results.append((pc,seq_probs[-1]))
+            print(f"pc:{np.round(pc,3)};seqs prob : {seq_probs}")
+            results.append((pc,seq_probs))
 
         best_results = None
         best_prob = 0
@@ -37,12 +37,13 @@ class NumericalCorrection():
                                                                    gussed_reconstructed_transitions, start_probs,
                                                                    known_mues, sigmas, Ng_iters, w_smapler_n_iter=w_smapler_n_iter,
                                                                     is_mh=is_mh)
-            prob = seq_probs[-1]
+            prob = seq_probs
             if prob > best_prob :
                 best_prob = prob
                 best_results = gussed_reconstructed_transitions
 
         print((l_pc, u_pc))
+        raise Exception()
         return [best_results]
 
     def return_best_window(self,results_list):
@@ -58,7 +59,6 @@ class NumericalCorrection():
             return pcs[best_pc_idx-1],pcs[best_pc_idx]
         else :
             return pcs[best_pc_idx], pcs[best_pc_idx + 1]
-
 
     @staticmethod
     def rebuild_transitions_dict(transitions, all_states):
