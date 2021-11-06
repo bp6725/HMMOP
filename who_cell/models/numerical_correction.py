@@ -11,7 +11,7 @@ class NumericalCorrection():
                                           known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
         gs = GibbsSampler(2,multi_process=self.multi_process)
         _, _, _, _, _, all_transitions = gs.sample( all_relvent_observations, start_probs,
-               known_mues,sigmas, 50 if Ng_iters < 50 else Ng_iters, w_smapler_n_iter,2,is_mh)
+               known_mues,sigmas, 50 if Ng_iters < 50 else Ng_iters, 100,2,is_mh)
         naive_transitions_matrix = all_transitions[-1]
 
         results = []
