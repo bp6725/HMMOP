@@ -23,7 +23,7 @@ class TestGibbsExperiment(TestCase):
             'sigma': [0.1],
             'number_of_smapled_traj': [2000],
             'p_prob_of_observation': [0.5],
-            'N_itres': [10],
+            'N_itres': [3],
             'is_mh': [False],
             "is_known_W": [False],
             'w_smapler_n_iter': [80],
