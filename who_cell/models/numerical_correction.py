@@ -9,9 +9,11 @@ class NumericalCorrection():
 
     def em_gibbs_numerical_reconstruction(self, all_relvent_observations, start_probs,
                                           known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
+        emissions_table = {state: {state:1} for state in start_probs.keys()}
+
         gs = GibbsSampler(2,multi_process=self.multi_process)
-        _, _, _, _, _, all_transitions = gs.sample( all_relvent_observations, start_probs,
-               known_mues,sigmas, Ng_iters, w_smapler_n_iter,2,is_mh)
+        _, _, all_transitions,_,_ = gs.sample_known_emissions( all_relvent_observations[0], start_probs,
+                                   emissions_table, Ng_iters, w_smapler_n_iter=w_smapler_n_iter, N=2, is_mh=is_mh)
         naive_transitions_matrix = all_transitions[-1]
 
         results = []
@@ -19,10 +21,11 @@ class NumericalCorrection():
         for pc in np.linspace(0.1,1,10) :
             gussed_reconstructed_transitions = NumericalCorrection.reconstruct_full_transitions_dict_from_few(naive_transitions_matrix,
                                                                                                               pc,start_probs)
-            _,_, seq_probs,_,_,_= gs.sample_known_transitions( all_relvent_observations,
+            seq_probs= gs.test_sample_known_transitions( all_relvent_observations,
                                                            gussed_reconstructed_transitions, start_probs,
                                      known_mues, sigmas, Ng_iters, w_smapler_n_iter=w_smapler_n_iter, is_mh=is_mh)
-            results.append((pc,sum(seq_probs[-3:-1])))
+            print((pc,seq_probs))
+            results.append((pc,seq_probs))
 
         best_results = None
         best_prob = 0
@@ -32,7 +35,7 @@ class NumericalCorrection():
             gussed_reconstructed_transitions = NumericalCorrection.reconstruct_full_transitions_dict_from_few(
                 naive_transitions_matrix,
                 pc, start_probs)
-            _, _, seq_probs, _, _, _ = gs.sample_known_transitions( all_relvent_observations,
+            _, _, seq_probs, _, _, _ = gs.test_sample_known_transitions( all_relvent_observations,
                                                                    gussed_reconstructed_transitions, start_probs,
                                                                    known_mues, sigmas, Ng_iters, w_smapler_n_iter=w_smapler_n_iter,
                                                                     is_mh=is_mh)
@@ -97,4 +100,6 @@ class NumericalCorrection():
         numrical_full_matrix = NumericalCorrection.reconstruct_full_transitions_matrix_from_few(few_transition_matrix, pc_guess)
         numrical_full_matrix_df = pd.DataFrame(columns=df.columns, index=df.index, data=numrical_full_matrix)
         #     print(df - numrical_full_matrix_df)
-        return numrical_full_matrix_df.T.to_dict()
+        numrical_full_matrix_dict = numrical_full_matrix_df.T.to_dict()
+        numrical_full_matrix_dict = {k:{kk:(vv if vv >0 else 0) for kk,vv in v.items()} for k,v in numrical_full_matrix_dict.items()}
+        return  {k:{kk:(vv / sum(v.values())) for kk,vv in v.items()} for k,v in numrical_full_matrix_dict.items()}

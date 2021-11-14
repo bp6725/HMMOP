@@ -105,6 +105,52 @@ class GibbsSampler() :
                 pbar.update(1)
         return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
 
+    def get_all_possible_ws_per_sentence(self,trajs_states, missing_trajs_states):
+        long = [(i, latter) for i, latter in enumerate(trajs_states)]
+        short = [(i, latter) for i, latter in enumerate(missing_trajs_states)]
+
+        all_possible_as_tuples = self.all_sub_seq_in_seq(long, short)
+        all_possible_ws = [[w[0] for w in option] for option in all_possible_as_tuples]
+
+        return all_possible_ws
+
+    def all_sub_seq_in_seq(self,long_seq, short_seq):
+        if len(short_seq) == 0: return [["done"]]
+
+        curr_latter = short_seq[0][1]
+        local_positions_in_long_seq = [i for i, latter in enumerate(long_seq) if latter[1] == curr_latter]
+
+        if len(local_positions_in_long_seq) == 0: return ["not valid"]
+
+        all_seq = []
+        for i in local_positions_in_long_seq:
+            new_short = short_seq[1:]
+            new_long = long_seq[(i + 1):]
+
+            for option in self.all_sub_seq_in_seq(new_long, new_short):
+                if "not valid" in option: continue
+                if "done" in option:
+                    all_seq.append([long_seq[i]])
+                else:
+                    all_seq.append([long_seq[i]] + option)
+        return all_seq
+
+    def test_sample_known_transitions(self, all_relvent_observations, curr_trans, start_probs,
+                                 known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
+        missing_sentences,full_sentences = all_relvent_observations
+        N = len(full_sentences)
+        state_to_distrbution_param_mapping = {state:state for state in start_probs.keys()}
+
+        full_likelihod = 0
+        for missing_traj,full_traj in zip(missing_sentences,full_sentences) :
+            all_possible_w = self.get_all_possible_ws_per_sentence(full_traj,missing_traj)
+            for _ws in all_possible_w :
+                seq_probs = self._calculate_prob_single_sample(state_to_distrbution_param_mapping,
+                                                                start_probs, curr_trans,
+                                                                (missing_traj, _ws, N))
+                full_likelihod += np.log(seq_probs)
+
+        return full_likelihod
     def sample_known_transitions(self, all_relvent_observations,curr_trans, start_probs,
                known_mues,sigmas, Ng_iters, w_smapler_n_iter = 100,N=None,is_mh = False):
         N = self.N if N is None else N
@@ -166,11 +212,12 @@ class GibbsSampler() :
                                                                                  curr_w,state_to_distrbution_param_mapping,
                                                                                  curr_mus,sigmas)
 
-                seq_prob = Utils._calc_probability_function_for_alpha(all_relvent_observations, curr_trans, curr_w,
-                                                                      curr_walk,
-                                                                      curr_mu=curr_mus,
-                                                                      known_emissions=state_to_distrbution_param_mapping,
-                                                                      is_known_emissions=False)
+                seq_probs = [self._calculate_prob_single_sample(state_to_distrbution_param_mapping,
+                                                                start_probs, curr_trans,
+                                                                (traj, curr_w[i], N[i] if type(N) is list else N)) for
+                             i, traj in
+                             enumerate(all_relvent_observations)]
+                print(np.exp(sum(np.log(seq_probs)) / 1000))
 
                 all_transitions.append(curr_trans)
                 all_states.append(sampled_states)
@@ -367,30 +414,6 @@ class GibbsSampler() :
                 all_ws.append(curr_w)
                 pbar.update(1)
         return  all_ws, all_states_picked_by_w, all_alphas
-
-    def compare_transitions_prob_to_count(self,transitions_prob,transitions_count,n_traj,N,d):
-
-        #the previous mathods need states as tuple and not str
-        transitions_prob = {eval(k):{eval(kk):vv for kk,vv in v.items() } for k,v in transitions_prob.items()}
-        transitions_count = {eval(k): {eval(kk): vv for kk, vv in v.items()} for k, v in transitions_count.items()}
-
-        states = transitions_prob.keys()
-        start_prob = self._build_start_prob(transitions_prob,N,d)
-        prior = self._fwd_bkw(states, start_prob, transitions_prob, None, N, d, only_forward = True)
-
-        _transitions_prob_to_count_list = []
-        for _from_state,_to_states in transitions_prob.items() :
-            for _to_state,prob in _to_states.items() :
-                _from_prior = prior[_from_state[1]][_from_state]
-                _to_prior = _from_prior * prob
-                expected_trans_count = _to_prior * n_traj
-                trans_count = transitions_count[_from_state][_to_state]
-
-                _transitions_prob_to_count_list.append([str(_from_state),str(_to_state),expected_trans_count,trans_count])
-
-        compr_df = pd.DataFrame(columns=['from','to','expected_count','count'],data = _transitions_prob_to_count_list)
-
-        return compr_df
 
     # endregion
 
@@ -603,9 +626,13 @@ class GibbsSampler() :
                 if (state in ['start','end']) :
                     _emm = 0
                 else :
-                    _emm = GibbsSampler.__probability_from_dist_params(observation,
+                    if not is_known_emm :
+                        _emm = GibbsSampler.__probability_from_dist_params(observation,
                                                                        state_to_distrbution_param_mapping[state],
                                                                        is_transitions_dict)
+
+                    else :
+                        _emm = 1 if observation is None else int(state_to_distrbution_param_mapping[state] == observation)
                 #if not cyclic case : if the start is out of time is zero
 
                 emmisions[(state, time_ind)] = _emm
@@ -1092,6 +1119,22 @@ class GibbsSampler() :
             return {k:{kk:(vv if vv != 0 else 1e-9) for kk,vv in v.items()} for k,v in new_emissions_table.items()}
 
         return new_emissions_table
+
+    def _calculate_prob_single_sample(self, state_to_distrbution_param_mapping,start_prob,  curr_trans,samples_data):
+        sample, _curr_ws,_N = samples_data
+        seq_length = max(len(sample), _N)
+
+        emmisions = GibbsSampler._build_emmisions_for_sample( sample,
+                                                     _curr_ws, state_to_distrbution_param_mapping,
+                                                              seq_length,is_known_emm=True)
+
+        flat_trans_prob = {(_f, _t): self._sample_trans_matrix(curr_trans, _f, _t) for _f, _t in
+                           itertools.product(curr_trans.keys(), curr_trans.keys())}
+        posterior = self._fwd_bkw( state_to_distrbution_param_mapping.keys(),
+                                  start_prob, flat_trans_prob, emmisions, seq_length,only_forward = True)
+        return sum(posterior[-1].values())
+
+
     # endregion
 
 if __name__ == '__main__':
