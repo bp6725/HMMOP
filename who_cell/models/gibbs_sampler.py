@@ -161,6 +161,13 @@ class GibbsSampler() :
                                                                                  curr_w,state_to_distrbution_param_mapping,
                                                                                  curr_mus,sigmas)
 
+                seq_probs = [self._calculate_prob_single_sample(state_to_distrbution_param_mapping,
+                                                                start_probs, curr_trans,
+                                                                (traj, curr_w[i], N[i] if type(N) is list else N)) for
+                             i, traj in
+                             enumerate(all_relvent_observations)]
+                print(np.exp(sum(np.log(seq_probs)) / 1000))
+
                 all_transitions.append(curr_trans)
                 all_states.append(sampled_states)
                 all_observations_sum.append(observations_sum)
@@ -187,7 +194,7 @@ class GibbsSampler() :
         seq_probs = [self._calculate_prob_single_sample( state_to_distrbution_param_mapping,
                                                       start_probs, curr_trans, (traj, curr_w[i],N[i] if type(N) is list else N)) for i,traj in
                     enumerate(all_relvent_observations)]
-        print(sum(seq_probs))
+        # print(sum(seq_probs))
         seq_prob = np.exp(sum(np.log(seq_probs)) / 1000)
 
         return all_states,all_observations_sum, seq_prob,all_mues,all_ws,all_transitions
