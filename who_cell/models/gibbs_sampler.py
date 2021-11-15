@@ -759,6 +759,39 @@ class GibbsSampler() :
         # Backward part of the algorithm
         return GibbsSampler._build_single_walk_from_postrior(fwd,trans_prob, N)
 
+    @staticmethod
+    def _fwd_for_inference(states, start_prob, trans_prob, emm_prob, seq_with_nones):
+        """Forward–backward algorithm."""
+        # Forward part of the algorithm
+        fwd = []
+        for observation_i,sample in enumerate(seq_with_nones):
+            f_curr = {}
+            for st in states:
+                if observation_i == 0:
+                    # base case for the forward part
+                    if st in start_prob.keys():
+                        prev_f_sum = start_prob[st]
+                    else:
+                        prev_f_sum = start_prob[str(st)]
+                else:
+                    if sample is None :
+                        prev_f_sum = 1
+                    else :
+                        prev_f_sum = sum(
+                        [f_prev[k] * GibbsSampler._flat_sample_trans_matrix(trans_prob, k, st) for k in states if
+                         f_prev[k] != 0])
+
+                if emm_prob is not None:
+                    # F-B case
+                    f_curr[st] = GibbsSampler.__sample_emmisions_matrix(emm_prob, st, observation_i) * prev_f_sum
+                else:
+                    # when we want to calculate only transitions (deviation of prob from expected sample count)
+                    f_curr[st] = prev_f_sum
+            fwd.append(f_curr)
+            f_prev = f_curr
+
+        return fwd
+
     def sample_mus_from_params(self,all_sampled_states, sum_relvent_observations, priors,  sigmas,known_mues):
         if known_mues is not None :
             return known_mues
@@ -1127,11 +1160,12 @@ class GibbsSampler() :
         emmisions = GibbsSampler._build_emmisions_for_sample( sample,
                                                      _curr_ws, state_to_distrbution_param_mapping,
                                                               seq_length,is_known_emm=True)
+        seq_with_nones = [(sample[i] if i in _curr_ws else None) for i in range(_N)]
 
         flat_trans_prob = {(_f, _t): self._sample_trans_matrix(curr_trans, _f, _t) for _f, _t in
                            itertools.product(curr_trans.keys(), curr_trans.keys())}
-        posterior = self._fwd_bkw( state_to_distrbution_param_mapping.keys(),
-                                  start_prob, flat_trans_prob, emmisions, seq_length,only_forward = True)
+        posterior = self._fwd_for_inference(state_to_distrbution_param_mapping.keys(),
+                                            start_prob, flat_trans_prob, emmisions, seq_with_nones)
         return sum(posterior[-1].values())
 
 
