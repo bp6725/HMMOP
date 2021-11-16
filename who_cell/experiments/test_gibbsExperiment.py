@@ -14,7 +14,7 @@ class TestGibbsExperiment(TestCase):
             'known_mues': [True],
             "is_few_observation_model": [True],
             "is_only_seen": ['all'],
-            'N': [120],
+            'N': [40],
             'd': [9],
             "non_cons_sim": [False],
             "bipartite": [False],

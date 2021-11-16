@@ -122,7 +122,7 @@ class GibbsExperiment() :
                     result = pickle.load(f)
             else :
                 result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
-                                    pome_results,(all_relvent_sampled_trajs_states,all_full_sampled_trajs_states),mues_for_sampler,sigmas_for_sampler,
+                                    pome_results,all_relvent_sampled_trajs_states,mues_for_sampler,sigmas_for_sampler,
                                     w_smapler_n_iter = combined_params['w_smapler_n_iter'],known_w=known_ws)
                 if skip_sampler :
                     with open(_cache_path,'wb') as f :
@@ -219,7 +219,7 @@ class GibbsExperiment() :
                                           w_smapler_n_iter = 100,known_w = None):
 
         transition_sampling_profile, N, sample_missing_with_prior,\
-        is_known_W,is_multi_process,use_pomegranate,is_numerical_reconstruction = GibbsExperiment.extrect_params(params,all_relvent_observations[0])
+        is_known_W,is_multi_process,use_pomegranate,is_numerical_reconstruction = GibbsExperiment.extrect_params(params,all_relvent_observations)
 
         if not GibbsExperiment._is_valid_experiment(params) : return None
         print(params)

@@ -124,3 +124,35 @@ class Utils() :
             else:
                 transition_dict[_from][_to] = _weight
         return transition_dict, final_states
+
+    @staticmethod
+    def get_all_possible_ws_per_sentence(trajs_states, missing_trajs_states):
+        long = [(i, latter) for i, latter in enumerate(trajs_states)]
+        short = [(i, latter) for i, latter in enumerate(missing_trajs_states)]
+
+        all_possible_as_tuples = Utils.all_sub_seq_in_seq(long, short)
+        all_possible_ws = [[w[0] for w in option] for option in all_possible_as_tuples]
+
+        return all_possible_ws
+
+    @staticmethod
+    def all_sub_seq_in_seq(long_seq, short_seq):
+        if len(short_seq) == 0: return [["done"]]
+
+        curr_latter = short_seq[0][1]
+        local_positions_in_long_seq = [i for i, latter in enumerate(long_seq) if latter[1] == curr_latter]
+
+        if len(local_positions_in_long_seq) == 0: return ["not valid"]
+
+        all_seq = []
+        for i in local_positions_in_long_seq:
+            new_short = short_seq[1:]
+            new_long = long_seq[(i + 1):]
+
+            for option in Utils.all_sub_seq_in_seq(new_long, new_short):
+                if "not valid" in option: continue
+                if "done" in option:
+                    all_seq.append([long_seq[i]])
+                else:
+                    all_seq.append([long_seq[i]] + option)
+        return all_seq

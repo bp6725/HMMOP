@@ -95,13 +95,27 @@ class Simulator_for_Gibbs():
         return _traj,_traj_states
 
     @staticmethod
+    def _sample_n_points_from_traj_binom(vec, pc):
+        relevent_obs = []
+        w = []
+        for i,obs in enumerate(vec) :
+            if np.random.rand() < pc :
+                relevent_obs.append(obs)
+                w.append(i)
+
+        if len(w) < 3 :
+            return Simulator_for_Gibbs._sample_n_points_from_traj_binom(vec, pc)
+        else :
+            return (relevent_obs,w)
+
+    @staticmethod
     def bernoulli_experiments(p_prob_of_observation, all_full_sampled_trajs):
         all_relvent_observations_and_ws = []
         for vec in all_full_sampled_trajs:
-            binom_dist = binom(len(vec), p_prob_of_observation)
-            n_of_obs = binom_dist.rvs(1)
-            n_of_obs = n_of_obs if n_of_obs > 2 else 2
-            _new_vec = Simulator_for_Gibbs._sample_n_points_from_traj(vec, n_of_obs)
+            # binom_dist = binom(len(vec), p_prob_of_observation)
+            # n_of_obs = binom_dist.rvs(1)
+            # n_of_obs = n_of_obs if n_of_obs > 2 else 2
+            _new_vec = Simulator_for_Gibbs._sample_n_points_from_traj_binom(vec, p_prob_of_observation)
             all_relvent_observations_and_ws.append(_new_vec)
 
         all_relvent_observations = [ro[0] for ro in all_relvent_observations_and_ws]
@@ -117,10 +131,10 @@ class Simulator_for_Gibbs():
             p_prob_of_observation = p_prob_of_observation if p_prob_of_observation > 0.01 else 0.01
             p_prob_of_observation = p_prob_of_observation if p_prob_of_observation < 1 else 1
 
-            binom_dist = binom(len(vec), p_prob_of_observation)
-            n_of_obs = binom_dist.rvs(1)
-            n_of_obs = n_of_obs if n_of_obs > 2 else 2
-            _new_vec = Simulator_for_Gibbs._sample_n_points_from_traj(vec, n_of_obs)
+            # binom_dist = binom(len(vec), p_prob_of_observation)
+            # n_of_obs = binom_dist.rvs(1)
+            # n_of_obs = n_of_obs if n_of_obs > 2 else 2
+            _new_vec = Simulator_for_Gibbs._sample_n_points_from_traj_binom(vec, p_prob_of_observation)
             all_relvent_observations_and_ws.append(_new_vec)
 
         all_relvent_observations = [ro[0] for ro in all_relvent_observations_and_ws]
