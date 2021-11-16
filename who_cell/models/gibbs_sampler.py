@@ -767,7 +767,10 @@ class GibbsSampler() :
     def _fwd_for_inference(states, start_prob, trans_prob, emm_prob, seq_with_nones):
         """Forward–backward algorithm."""
         # Forward part of the algorithm
+<<<<<<< HEAD
         is_possible = not any([trans_prob[(_f,_t)] == 0 for  _f,_t in zip(seq_with_nones,seq_with_nones[1:]) if ((not _f is None) and  (not _t is None) )])
+=======
+>>>>>>> numerical_reconstruction
         fwd = []
         for observation_i,sample in enumerate(seq_with_nones):
             f_curr = {}
@@ -779,9 +782,18 @@ class GibbsSampler() :
                     else:
                         prev_f_sum = start_prob[str(st)]
                 else:
+<<<<<<< HEAD
                     prev_f_sum = sum(
                     [f_prev[k] * GibbsSampler._flat_sample_trans_matrix(trans_prob, k, st) for k in states if
                      f_prev[k] != 0])
+=======
+                    if sample is None :
+                        prev_f_sum = 1
+                    else :
+                        prev_f_sum = sum(
+                        [f_prev[k] * GibbsSampler._flat_sample_trans_matrix(trans_prob, k, st) for k in states if
+                         f_prev[k] != 0])
+>>>>>>> numerical_reconstruction
 
                 if emm_prob is not None:
                     # F-B case
@@ -790,9 +802,14 @@ class GibbsSampler() :
                     # when we want to calculate only transitions (deviation of prob from expected sample count)
                     f_curr[st] = prev_f_sum
             fwd.append(f_curr)
+<<<<<<< HEAD
             if sum(f_curr.values()) == 0: return fwd
             f_prev = f_curr
         # print("here")
+=======
+            f_prev = f_curr
+
+>>>>>>> numerical_reconstruction
         return fwd
 
     def sample_mus_from_params(self,all_sampled_states, sum_relvent_observations, priors,  sigmas,known_mues):
@@ -1160,6 +1177,7 @@ class GibbsSampler() :
         sample, _curr_ws, _N = samples_data
         seq_length = max(len(sample), _N)
 
+<<<<<<< HEAD
         emmisions = GibbsSampler._build_emmisions_for_sample(sample,
                                                              _curr_ws, state_to_distrbution_param_mapping,
                                                              seq_length, is_known_emm=True)
@@ -1171,6 +1189,12 @@ class GibbsSampler() :
                 k += 1
             else :
                 seq_with_nones.append(None)
+=======
+        emmisions = GibbsSampler._build_emmisions_for_sample( sample,
+                                                     _curr_ws, state_to_distrbution_param_mapping,
+                                                              seq_length,is_known_emm=True)
+        seq_with_nones = [(sample[i] if i in _curr_ws else None) for i in range(_N)]
+>>>>>>> numerical_reconstruction
 
         flat_trans_prob = {(_f, _t): self._sample_trans_matrix(curr_trans, _f, _t) for _f, _t in
                            itertools.product(curr_trans.keys(), curr_trans.keys())}
