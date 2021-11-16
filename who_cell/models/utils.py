@@ -61,7 +61,7 @@ class Utils() :
 
             _prob = Utils.__calc_probability_function_per_traj(traj, curr_trans, _w, _walk, curr_mu, known_emissions,is_known_emissions)
             probs_per_traj.append(_prob)
-        return np.exp(sum(probs_per_traj)/len(all_relvent_observations))
+        return sum(probs_per_traj)
 
     @staticmethod
     def normpdf(x, mean, sd):
@@ -93,7 +93,7 @@ class Utils() :
         transitions_prob = [(_trans[_f][_t] if _t in _trans[_f].keys() else 0) for _f, _t in zip(_walk, _walk[1:])]
         log_transitions_prob = np.log(transitions_prob)
 
-        return reduce(lambda x, y: x + y, log_transitions_prob)  #* reduce(lambda x, y: x + y, log_emissions_prob)
+        return reduce(lambda x, y: x + y, log_transitions_prob)  + reduce(lambda x, y: x + y, log_emissions_prob)
 
     @staticmethod
     def _extrect_states_transitions_dict_from_pome_model( model, states=None):
@@ -145,3 +145,35 @@ class Utils() :
             [_cross_entropy_distance(dist, comp_trans[state]) for state, dist in known_trns.items()])
 
         return (l1_distance(org,comp),cross_entropy_distance(org,comp))
+
+    @staticmethod
+    def get_all_possible_ws_per_sentence(trajs_states, missing_trajs_states):
+        long = [(i, latter) for i, latter in enumerate(trajs_states)]
+        short = [(i, latter) for i, latter in enumerate(missing_trajs_states)]
+
+        all_possible_as_tuples = Utils.all_sub_seq_in_seq(long, short)
+        all_possible_ws = [[w[0] for w in option] for option in all_possible_as_tuples]
+
+        return all_possible_ws
+
+    @staticmethod
+    def all_sub_seq_in_seq(long_seq, short_seq):
+        if len(short_seq) == 0: return [["done"]]
+
+        curr_latter = short_seq[0][1]
+        local_positions_in_long_seq = [i for i, latter in enumerate(long_seq) if latter[1] == curr_latter]
+
+        if len(local_positions_in_long_seq) == 0: return ["not valid"]
+
+        all_seq = []
+        for i in local_positions_in_long_seq:
+            new_short = short_seq[1:]
+            new_long = long_seq[(i + 1):]
+
+            for option in Utils.all_sub_seq_in_seq(new_long, new_short):
+                if "not valid" in option: continue
+                if "done" in option:
+                    all_seq.append([long_seq[i]])
+                else:
+                    all_seq.append([long_seq[i]] + option)
+        return all_seq
