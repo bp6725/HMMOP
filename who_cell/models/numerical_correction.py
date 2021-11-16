@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from who_cell.models.gibbs_sampler import GibbsSampler
+from collections import Counter
 import itertools
 
 class NumericalCorrection():
@@ -9,16 +10,22 @@ class NumericalCorrection():
 
     def em_gibbs_numerical_reconstruction(self, all_relvent_observations, start_probs,
                                           known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
-        emissions_table = {state: {state:1} for state in start_probs.keys()}
+        known_emissions = True
+        if known_emissions :
+            all_trans_count = Counter(itertools.chain(*[[(_f,_t) for _f,_t in zip(sentence,sentence[1:]) ] for sentence in all_relvent_observations[0]]))
+            all_transitions = {k:{kk:all_trans_count[(k,kk)] for kk in start_probs.keys()} for k in start_probs.keys()}
+            naive_transitions_matrix = {k:{kk:vv/sum(v.values()) for kk,vv in v.items()} for k,v in all_transitions.items()}
 
-        gs = GibbsSampler(2,multi_process=self.multi_process)
-        _, _, all_transitions,_,_ = gs.sample_known_emissions( all_relvent_observations[0], start_probs,
-                                   emissions_table, Ng_iters, w_smapler_n_iter=w_smapler_n_iter, N=2, is_mh=is_mh)
-        naive_transitions_matrix = all_transitions[-1]
+        # emissions_table = {state: {state:1} for state in start_probs.keys()}
+        #
+        # gs = GibbsSampler(2,multi_process=self.multi_process)
+        # _, _, all_transitions,_,_ = gs.sample_known_emissions( all_relvent_observations[0], start_probs,
+        #                            emissions_table, Ng_iters, w_smapler_n_iter=w_smapler_n_iter, N=2, is_mh=is_mh)
+        # naive_transitions_matrix = all_transitions[-1]
 
         results = []
         gs = GibbsSampler(N,multi_process=self.multi_process)
-        for pc in np.linspace(0.1,1,10) :
+        for pc in np.linspace(0.5,1,10) :
             gussed_reconstructed_transitions = NumericalCorrection.reconstruct_full_transitions_dict_from_few(naive_transitions_matrix,
                                                                                                               pc,start_probs)
             seq_probs= gs.test_sample_known_transitions( all_relvent_observations,
