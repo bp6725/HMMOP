@@ -130,6 +130,7 @@ class GibbsSampler() :
                known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False):
         print("start known W")
         N = self.N if N is None else N
+
         states = list(set(list(start_probs.keys()) + ['start','end']))
         start_probs = {state:(1/(len(states)-2)) for state in states}
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues,sigmas,
