@@ -197,12 +197,24 @@ class GibbsExperiment() :
             if ((params['is_few_observation_model'] == True) and (params["numerical_reconstruction_pc"] != -1)):
                 return False
 
+        if "PC_guess" in params.keys() and "N_guess" in params.keys() :
+            if (params["PC_guess"] != -1) and (params["N_guess"] != -1):
+                return False
+
         return True
 
     @staticmethod
     def extrect_params(params,all_relvent_observations):
         transition_sampling_profile = params["is_only_seen"]
-        N = params['N'] if "N_guess" not in params.keys() else [int(len(v)*params["N_guess"]) for v in all_relvent_observations]
+
+        if "N_guess" not in params.keys() :
+            N = params['N']
+        else :
+            if params['N_guess'] != -1 :
+                N = [int(len(v) * params["N_guess"]) for v in all_relvent_observations]
+            else :
+                N = params['N']
+
         N = N if  params['is_few_observation_model'] else 2
         sample_missing_with_prior  = params["sample_missing_with_prior"] if "sample_missing_with_prior" in params.keys() else False
         is_known_W = params['is_known_W'] if "is_known_W" in params.keys() else False
