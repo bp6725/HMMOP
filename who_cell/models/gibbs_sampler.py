@@ -371,10 +371,10 @@ class GibbsSampler() :
                                                         curr_w, curr_trans)
         _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
-
         all_alphas = [alpha]
         all_ws = [curr_w]
         all_states_picked_by_w = [_states_picked_by_w]
+        all_walks = []
         with tqdm(total=Ng_iters) as pbar:
             for i in range(Ng_iters):
                 curr_w, alpha1 = self.sample_ws_from_params(all_relvent_observations, curr_walk, emissions_table, N,
@@ -393,12 +393,12 @@ class GibbsSampler() :
                                                                  stage_name="walk" if is_mh else "no_mh",
                                                                  observations=all_relvent_observations)
 
-
+                all_walks.append(curr_walk)
                 all_alphas.append(np.mean([ alpha1, alpha2]))
                 all_states_picked_by_w.append(_states_picked_by_w)
                 all_ws.append(curr_w)
                 pbar.update(1)
-        return  all_ws, all_states_picked_by_w, all_alphas
+        return  all_ws, all_states_picked_by_w, all_alphas,all_walks
 
     # endregion
 
