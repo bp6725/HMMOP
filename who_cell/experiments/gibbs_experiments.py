@@ -247,7 +247,7 @@ class GibbsExperiment() :
                 if (not is_pc_guess) :
                     all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
                         sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
-                                       mues_for_sampler, sigmas_for_sampler, params['N_itres'],PC_guess=params["PC_guess"],
+                                       mues_for_sampler, sigmas_for_sampler, params['N_itres'],
                                        w_smapler_n_iter=w_smapler_n_iter,
                                        is_mh=params["is_mh"])
                     sampled_transitions_dict = all_sampled_transitions[-1]

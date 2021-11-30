@@ -111,6 +111,7 @@ class NumericalCorrection():
             (pc) * NumericalCorrection.power_matrix_np(adj_few_transition_matrix, 0) + (1 - pc) * adj_few_transition_matrix).dot(
             adj_few_transition_matrix)
 
+
     @staticmethod
     def reconstruct_full_transitions_dict_from_few(few_transition_dict, pc_guess,start_probabilites,avg_seq_len):
         all_states = list(start_probabilites.keys())
