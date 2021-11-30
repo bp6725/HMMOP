@@ -302,13 +302,13 @@ class Simulator_for_Gibbs():
             if state == 'end' : continue
             transition_matrix_sparse[state] = {}
 
-            n_of_out_trans = d#np.random.randint(d-2, d )
+            n_of_out_trans =d# np.random.randint(d-1, d +1)
             _possible_states = [s for s in possible_states if s != state]
             out_trans = np.random.choice(_possible_states, size=n_of_out_trans, replace=False)
 
             for out_t in out_trans:
-                _trans_val = (np.random.rand() + 0.13) / 1.3
-                transition_matrix_sparse[state][out_t] = np.round(_trans_val,3)
+                _trans_val = (np.random.rand() )
+                transition_matrix_sparse[state][out_t] = np.round(_trans_val,4)
             # transition_matrix_sparse[state]['end'] = np.round(1/len(states),3)
 
         transition_matrix_sparse['start'] = {state: np.round(1/len(states),3) for state in possible_states}

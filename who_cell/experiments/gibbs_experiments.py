@@ -90,7 +90,7 @@ class GibbsExperiment() :
     def run_multi_params_mutual_model_and_return_results(mutual_model_params_dict, hyper_params_dict,skip_sampler):
         all_results_of_model = {}
 
-        hyper_params_sets, max_number_of_sampled_traj= GibbsExperiment._return_params_sets(mutual_model_params_dict,
+        hyper_params_sets, max_number_of_sampled_traj = GibbsExperiment._return_params_sets(mutual_model_params_dict,
                                                                                            hyper_params_dict)
 
         # simulate
@@ -210,8 +210,10 @@ class GibbsExperiment() :
         use_pomegranate = params['use_pomegranate'] if "use_pomegranate" in params.keys() else False
         is_numerical_reconstruction = params[
             "is_numerical_reconstruction_method"] if "is_numerical_reconstruction_method" in params.keys() else False
+        is_pc_guess = False if  "PC_guess" not in params.keys() else params["PC_guess"] != -1
 
-        return transition_sampling_profile,N,sample_missing_with_prior,is_known_W,is_multi_process,use_pomegranate,is_numerical_reconstruction
+        return transition_sampling_profile,N,sample_missing_with_prior,is_known_W,\
+               is_multi_process,use_pomegranate,is_numerical_reconstruction,is_pc_guess
 
     @staticmethod
     def solve_return_results_mutual_model(params,pome_results,
@@ -219,7 +221,8 @@ class GibbsExperiment() :
                                           w_smapler_n_iter = 100,known_w = None):
 
         transition_sampling_profile, N, sample_missing_with_prior,\
-        is_known_W,is_multi_process,use_pomegranate,is_numerical_reconstruction = GibbsExperiment.extrect_params(params,all_relvent_observations)
+        is_known_W,is_multi_process,use_pomegranate,\
+        is_numerical_reconstruction,is_pc_guess = GibbsExperiment.extrect_params(params,all_relvent_observations)
 
         if not GibbsExperiment._is_valid_experiment(params) : return None
         print(params)
@@ -241,13 +244,23 @@ class GibbsExperiment() :
 
         elif not is_known_W  :
             if not is_numerical_reconstruction :
-                all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                    sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
-                                   mues_for_sampler, sigmas_for_sampler, params['N_itres'],
-                                   w_smapler_n_iter=w_smapler_n_iter,
-                                   is_mh=params["is_mh"])
-                sampled_transitions_dict = all_sampled_transitions[-1]
-                sampled_mues = all_mues[-1]
+                if (not is_pc_guess) :
+                    all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
+                        sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
+                                       mues_for_sampler, sigmas_for_sampler, params['N_itres'],
+                                       w_smapler_n_iter=w_smapler_n_iter,
+                                       is_mh=params["is_mh"])
+                    sampled_transitions_dict = all_sampled_transitions[-1]
+                    sampled_mues = all_mues[-1]
+                else :
+                    all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
+                        sampler.sample_guess_pc(all_relvent_observations, pome_results['start_probabilites'],
+                                       mues_for_sampler, sigmas_for_sampler, params['N_itres'],
+                                       PC_guess=params["PC_guess"],
+                                       w_smapler_n_iter=w_smapler_n_iter,
+                                       is_mh=params["is_mh"])
+                    sampled_transitions_dict = all_sampled_transitions[-1]
+                    sampled_mues = all_mues[-1]
             else :
                 gnc = NumericalCorrection(multi_process = is_multi_process)
                 all_transitions = gnc.em_gibbs_numerical_reconstruction(all_relvent_observations,

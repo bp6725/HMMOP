@@ -29,8 +29,9 @@ class TestGibbsExperiment(TestCase):
             'w_smapler_n_iter': [80],
             'is_multi_process': [False],
             "use_pomegranate": [False],
+            "PC_guess" : [0.25,0.5,0.75],
             "numerical_reconstruction_pc": [-1],
-            "is_numerical_reconstruction_method" : [True]
+            "is_numerical_reconstruction_method" : [False]
         }
 
         # model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite']
