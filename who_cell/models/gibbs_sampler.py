@@ -98,7 +98,7 @@ class GibbsSampler() :
 
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
-                all_states.append(sampled_states)
+                all_states.append(curr_walk)
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
                 all_ws.append(curr_w)
@@ -181,7 +181,7 @@ class GibbsSampler() :
 
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
-                all_states.append(sampled_states)
+                all_states.append(curr_walk)
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
                 all_ws.append(curr_w)
