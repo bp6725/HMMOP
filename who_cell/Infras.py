@@ -10,6 +10,9 @@ class Infras() :
     @staticmethod
     def _return_cache_relevent_params(func,*args, **kwargs) :
         func_name = func.__name__
+
+        if 'build_known_model' == func_name :
+            return ['build_known_model',args[0]]
         if ("bipartite" in func_name) :
             N, d, mues, sigmas ,ratio = args
             return ['build_model_parameters',f'{N}', str(d), str(mues), str(sigmas),"bipartite",str(ratio)]

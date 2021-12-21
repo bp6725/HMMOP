@@ -1,26 +1,8 @@
-import pomegranate
 from pomegranate import *
 import numpy as np
-import math
-import matplotlib.pyplot as plt
-from functools import partial
 import itertools
-import random
-import copy
-import pandas as pd
-import itertools
-import networkx as nx
-import holoviews as hv
-from IPython.display import display, HTML,clear_output
-from scipy.stats import binom
 from who_cell.Infras import Infras
-
-from numba import jit
-import numba
-
-from tqdm import tqdm
-import snakeviz
-
+from who_cell.simulation.known_transition_matrices import KnownTransition_matrices
 
 class Simulator_for_Gibbs():
     def __init__(self,N,d,n_states,easy_mode=False,max_number_of_sampled_traj = None,sigma = 0.1 ):
@@ -393,11 +375,18 @@ class Simulator_for_Gibbs():
 
     def _build_pome_model_from_params(self,state_to_distrbution_param_mapping,
                                       transition_matrix_sparse):
-        # we need this because we need to share the dist instances for pomegranate
-        all_params_to_distrbutions = {(_params[0], _params[1]):NormalDistribution(_params[0], _params[1]) for k,_params in
-                            state_to_distrbution_param_mapping.items() if ((k != 'start') and (k != 'end'))}
-        if 'start' not in state_to_distrbution_param_mapping.keys() :
-            state_to_distrbution_param_mapping['start'] = (-1,-1)
+        is_known_emissions = type(state_to_distrbution_param_mapping[list(state_to_distrbution_param_mapping.keys())[0]]) is dict
+
+        if is_known_emissions :
+            all_params_to_distrbutions = {st: DiscreteDistribution(dist) for st, dist in
+                                          state_to_distrbution_param_mapping.items()}
+            state_to_distrbution_param_mapping['start'] = {}
+        else :
+            # we need this because we need to share the dist instances for pomegranate
+            all_params_to_distrbutions = {(_params[0], _params[1]):NormalDistribution(_params[0], _params[1]) for k,_params in
+                                state_to_distrbution_param_mapping.items() if ((k != 'start') and (k != 'end'))}
+            if 'start' not in state_to_distrbution_param_mapping.keys() :
+                state_to_distrbution_param_mapping['start'] = (-1,-1)
 
         all_model_pome_states = {}
         model = HiddenMarkovModel()
@@ -410,8 +399,10 @@ class Simulator_for_Gibbs():
                 model.add_state(model.end)
                 all_model_pome_states['end'] = model.end
                 continue
-
-            state = State(all_params_to_distrbutions[_params], name=f"{state_name}")
+            if is_known_emissions :
+                state = State(all_params_to_distrbutions[state_name], name=f"{state_name}")
+            else :
+                state = State(all_params_to_distrbutions[_params], name=f"{state_name}")
             model.add_state(state)
             all_model_pome_states[state_name] = state
 
@@ -445,7 +436,8 @@ class Simulator_for_Gibbs():
             normalized_transition_matrix_sparse[_from] = {_to: (val / _sum) for _to, val in to.items()}
         return normalized_transition_matrix_sparse
 
-    def build_pome_model(self,N, d, mues, sigmas,is_bipartite = False,inner_outer_trans_probs_ratio = 0):
+    def build_pome_model(self,N, d, mues, sigmas,is_bipartite = False,inner_outer_trans_probs_ratio = 0,
+                         mutual_model_params_dict = None):
         '''
 
         :param N:
@@ -456,22 +448,9 @@ class Simulator_for_Gibbs():
         :return:
         '''
 
-
-        if not is_bipartite:
-            (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites),\
-                params_signature = \
-                self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
-        else:
-            if is_bipartite == True :
-                (state_to_distrbution_param_mapping, transition_matrix_sparse, \
-                 start_probabilites), params_signature = self.build_bipartite_template_model_parameters(N, d, mues,
-                                                                                                    sigmas,
-                                                                                                    inner_outer_trans_probs_ratio)
-            if is_bipartite == "DAG" :
-                (state_to_distrbution_param_mapping, transition_matrix_sparse, \
-                 start_probabilites), params_signature = self.build_dag_template_model_parameters(N, d, mues,
-                                                                                                        sigmas,
-                                                                                                        inner_outer_trans_probs_ratio)
+        (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites), params_signature = \
+            self.return_model_parameters(N, d, mues,sigmas,inner_outer_trans_probs_ratio,
+                                                                is_bipartite,mutual_model_params_dict)
 
         transition_matrix_sparse = self._normalize_transition_matrix(transition_matrix_sparse)
 
@@ -490,7 +469,29 @@ class Simulator_for_Gibbs():
 
         return pome_results
 
+    def return_model_parameters(self,N, d, mues,sigmas,inner_outer_trans_probs_ratio,
+                                                                is_bipartite,mutual_model_params_dict):
+        is_known_dataset = mutual_model_params_dict["known_dataset"] != -1 if "known_dataset" in mutual_model_params_dict.keys() else False
+
+        if is_known_dataset :
+            return self.build_known_model(mutual_model_params_dict["known_dataset"])
+
+        if not is_bipartite:
+            return self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
+
+        if is_bipartite:
+            return self.build_bipartite_template_model_parameters(N, d, mues,sigmas,
+                                                                  inner_outer_trans_probs_ratio)
+        if is_bipartite == "DAG":
+            return self.build_dag_template_model_parameters(N, d, mues,sigmas,inner_outer_trans_probs_ratio)
+
+    @Infras.storage_cache
+    def build_known_model(self,known_dataset):
+        emmisions,transition_dict,start_probs = KnownTransition_matrices.load_data_set_by_name(known_dataset)
+        return emmisions,transition_dict,start_probs
+
     def update_known_mues_and_sigmes_to_state_mapping(self,state_to_distrbution_param_mapping) :
+        if type(state_to_distrbution_param_mapping[list(state_to_distrbution_param_mapping.keys())[0]]) is dict : return None
         self.states_known_mues = {state:params[0] for state,params in state_to_distrbution_param_mapping.items()}
         self.states_known_sigmas = {state:params[1] for state,params in state_to_distrbution_param_mapping.items()}
 

@@ -102,7 +102,8 @@ class GibbsExperiment() :
         pome_results = simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
                                        simulator.mues, simulator.sigmas,
                                        is_bipartite = mutual_model_params_dict['bipartite'],
-                                       inner_outer_trans_probs_ratio = mutual_model_params_dict['inner_outer_trans_probs_ratio'])
+                                       inner_outer_trans_probs_ratio = mutual_model_params_dict['inner_outer_trans_probs_ratio'],
+                                                  mutual_model_params_dict = mutual_model_params_dict)
 
         simulator.update_known_mues_and_sigmes_to_state_mapping(pome_results["state_to_distrbution_param_mapping"])
 
@@ -223,9 +224,10 @@ class GibbsExperiment() :
         is_numerical_reconstruction = params[
             "is_numerical_reconstruction_method"] if "is_numerical_reconstruction_method" in params.keys() else False
         is_pc_guess = False if  "PC_guess" not in params.keys() else params["PC_guess"] != -1
+        is_known_dataset = params["known_dataset"] != -1 if "known_dataset" in params.keys() else False
 
         return transition_sampling_profile,N,sample_missing_with_prior,is_known_W,\
-               is_multi_process,use_pomegranate,is_numerical_reconstruction,is_pc_guess
+               is_multi_process,use_pomegranate,is_numerical_reconstruction,is_pc_guess,is_known_dataset
 
     @staticmethod
     def solve_return_results_mutual_model(params,pome_results,
@@ -234,7 +236,7 @@ class GibbsExperiment() :
 
         transition_sampling_profile, N, sample_missing_with_prior,\
         is_known_W,is_multi_process,use_pomegranate,\
-        is_numerical_reconstruction,is_pc_guess = GibbsExperiment.extrect_params(params,all_relvent_observations)
+        is_numerical_reconstruction,is_pc_guess,is_known_dataset = GibbsExperiment.extrect_params(params,all_relvent_observations)
 
         if not GibbsExperiment._is_valid_experiment(params) : return None
         print(params)
@@ -244,7 +246,11 @@ class GibbsExperiment() :
         sampler = GibbsSampler(N, params['d'],transition_sampling_profile= transition_sampling_profile,
                                multi_process= is_multi_process)
 
-        if use_pomegranate :
+        relevent_sampling_method = GibbsExperiment.__sampling_method_from_params(use_pomegranate,is_known_W,
+                                                                                 is_numerical_reconstruction,is_pc_guess,
+                                                                                 is_known_dataset)
+
+        if relevent_sampling_method == "pomegranate" :
             _transitions = sampler.reconstruction_using_pomegranate(all_relvent_observations,
                                                                     pome_results["state_to_distrbution_param_mapping"],
                                                                     known_w=known_w)
@@ -254,52 +260,55 @@ class GibbsExperiment() :
             sampled_transitions_dict = None
             sampled_mues = None
 
-        elif not is_known_W  :
-            if not is_numerical_reconstruction :
-                if (not is_pc_guess) :
-                    all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                        sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
-                                       mues_for_sampler, sigmas_for_sampler, params['N_itres'],
-                                       w_smapler_n_iter=w_smapler_n_iter,
-                                       is_mh=params["is_mh"])
-                    sampled_transitions_dict = all_sampled_transitions[-1]
-                    sampled_mues = all_mues[-1]
-                else :
-                    all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                        sampler.sample_guess_pc(all_relvent_observations, pome_results['start_probabilites'],
-                                       mues_for_sampler, sigmas_for_sampler, params['N_itres'],
-                                       PC_guess=params["PC_guess"],
-                                       w_smapler_n_iter=w_smapler_n_iter,
-                                       is_mh=params["is_mh"])
-                    sampled_transitions_dict = all_sampled_transitions[-1]
-                    sampled_mues = all_mues[-1]
-            else :
-                gnc = NumericalCorrection(multi_process = is_multi_process)
-                all_transitions = gnc.em_gibbs_numerical_reconstruction(all_relvent_observations,
-                                                                        pome_results['start_probabilites'],
-                                                                        mues_for_sampler, sigmas_for_sampler,
-                                                                        params['N_itres'], w_smapler_n_iter=100, N=N,
-                                                                        is_mh=False)
-                all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws = None, None, None, None, None
-                sampled_transitions_dict = None
-                sampled_mues = None
-
-        else :
-            if not is_numerical_reconstruction :
-                all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                sampler.sample_known_W(all_relvent_observations, pome_results['start_probabilites'],
-                               mues_for_sampler,sigmas_for_sampler,params['N_itres'],known_w, w_smapler_n_iter=w_smapler_n_iter,
+        if relevent_sampling_method == "N from outside" :
+            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
+                sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
+                               mues_for_sampler, sigmas_for_sampler, params['N_itres'],
+                               w_smapler_n_iter=w_smapler_n_iter,
                                is_mh=params["is_mh"])
-            else :
-                gnc = NumericalCorrection(multi_process = is_multi_process)
-                all_transitions = gnc.em_gibbs_numerical_reconstruction(all_relvent_observations,
-                                                                        pome_results['start_probabilites'],
-                                                                        mues_for_sampler, sigmas_for_sampler,
-                                                                        params['N_itres'], w_smapler_n_iter=100, N=N,
-                                                                        is_mh=False)
-                all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws = None, None, None, None, None
+            sampled_transitions_dict = all_sampled_transitions[-1]
+            sampled_mues = all_mues[-1]
 
+        if relevent_sampling_method == "PC from outside":
+            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
+                sampler.sample_guess_pc(all_relvent_observations, pome_results['start_probabilites'],
+                                        mues_for_sampler, sigmas_for_sampler, params['N_itres'],
+                                        PC_guess=params["PC_guess"],
+                                        w_smapler_n_iter=w_smapler_n_iter,
+                                        is_mh=params["is_mh"])
+            sampled_transitions_dict = all_sampled_transitions[-1]
+            sampled_mues = all_mues[-1]
 
+        if relevent_sampling_method == "numerical reconstruction":
+            gnc = NumericalCorrection(multi_process=is_multi_process)
+            all_transitions = gnc.em_gibbs_numerical_reconstruction(all_relvent_observations,
+                                                                    pome_results['start_probabilites'],
+                                                                    mues_for_sampler, sigmas_for_sampler,
+                                                                    params['N_itres'], w_smapler_n_iter=100, N=N,
+                                                                    is_mh=False)
+            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws = None, None, None, None, None
+            sampled_transitions_dict = None
+            sampled_mues = None
+
+        if relevent_sampling_method == "known dataset":
+            all_sampled_transitions, all_ws, all_transitions,all_states_picked_by_w,all_alphas = \
+                sampler.sample_known_emissions(all_relvent_observations, pome_results['start_probabilites'],
+                                   {k:v for k,v in pome_results['state_to_distrbution_param_mapping'].items() if k !='start'},
+                                               Ng_iters=params['N_itres'],
+                                               w_smapler_n_iter=w_smapler_n_iter, is_mh=params["is_mh"])
+
+            sampled_transitions_dict = all_sampled_transitions[-1]
+            sampled_mues = None
+            all_states = None
+            all_observations_sum = None
+            all_mues = None
+
+        if relevent_sampling_method == "Known W":
+            all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
+                sampler.sample_known_W(all_relvent_observations, pome_results['start_probabilites'],
+                                       mues_for_sampler, sigmas_for_sampler, params['N_itres'], known_w,
+                                       w_smapler_n_iter=w_smapler_n_iter,
+                                       is_mh=params["is_mh"])
             sampled_transitions_dict = all_sampled_transitions[-1]
             sampled_mues = all_mues[-1]
 
@@ -335,6 +344,23 @@ class GibbsExperiment() :
                                                       [non_defining_params_dict]))
 
         return sets_of_params_dicts
+
+    @staticmethod
+    def __sampling_method_from_params(use_pomegranate,is_known_W,is_numerical_reconstruction,is_pc_guess,is_known_dataset):
+        if is_known_dataset :
+            return "known dataset"
+
+        if use_pomegranate:
+            return "pomegranate"
+
+        if (not is_known_W) and (not is_numerical_reconstruction) :
+            return "N from outside" if (not is_pc_guess) else "PC from outside"
+
+        if is_numerical_reconstruction :
+            return "numerical reconstruction"
+
+        if is_known_W:
+            return "Known W"
 
     @staticmethod
     def measure_ws_correction(sampled_ws, known_W,N) :
