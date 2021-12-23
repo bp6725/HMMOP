@@ -12,7 +12,7 @@ class TestGibbsExperiment(TestCase):
         model_defining_params_pre = ['N', "d", "n_states",'is_acyclic','sigma','bipartite',"known_dataset"]
         params_dict = {
             'known_mues': [True],
-            "is_few_observation_model": [True],
+            "is_few_observation_model": [False],
             "is_only_seen": ['all'],
             'N': [45],
             'd': [5],
@@ -20,7 +20,7 @@ class TestGibbsExperiment(TestCase):
             "bipartite": [False],
             "inner_outer_trans_probs_ratio": [300],
             'n_states': [10],
-            "known_dataset":["SCHIZX1_drug","POS"],
+            "known_dataset":[-1,"SCHIZX1_drug","POS"],
             'sigma': [0.1],
             'number_of_smapled_traj': [300],
             # 'p_prob_of_observation': [0.5, (0.5, 0.1), (0.55, 0.45, 0.45, 0.55)],
@@ -31,8 +31,8 @@ class TestGibbsExperiment(TestCase):
             'w_smapler_n_iter': [80],
             'is_multi_process': [False],
             "use_pomegranate": [False],
-            # "PC_guess" : ["unknown",-1,0.75,0.8],
-            # "N_guess" :[5,-1,3],
+            "PC_guess" : ["unknown",-1,0.75,0.8],
+            "N_guess" :[5,-1,3],
             "numerical_reconstruction_pc": [-1],
             "is_numerical_reconstruction_method" : [False]
         }

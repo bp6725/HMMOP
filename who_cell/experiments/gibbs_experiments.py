@@ -197,10 +197,17 @@ class GibbsExperiment() :
         if "numerical_reconstruction_pc" in params.keys() :
             if ((params['is_few_observation_model'] == True) and (params["numerical_reconstruction_pc"] != -1)):
                 return False
-
         if "PC_guess" in params.keys() and "N_guess" in params.keys() :
             if (params["PC_guess"] != -1) and (params["N_guess"] != -1):
                 return False
+
+        is_few_obse_exp = (params["PC_guess"] != -1 if "PC_guess" in params.keys() else False) or \
+                          (params["is_numerical_reconstruction_method"] if "is_numerical_reconstruction_method" in
+                                                                           params.keys() else False) or (
+                              params["N_guess"] != -1 if "N_guess" in params.keys() else False)
+        if is_few_obse_exp and (not params['is_few_observation_model']) :
+            return False
+
 
         return True
 
