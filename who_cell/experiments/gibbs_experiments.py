@@ -207,7 +207,8 @@ class GibbsExperiment() :
                               params["N_guess"] != -1 if "N_guess" in params.keys() else False)
         if is_few_obse_exp and (not params['is_few_observation_model']) :
             return False
-
+        if is_few_obse_exp and (params["is_known_W"]) :
+            return False
 
         return True
 
