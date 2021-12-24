@@ -40,17 +40,19 @@ class Simulator_for_Gibbs():
         sampled_emissions = long_sampled[0]
         sampled_states = [ss.name for ss in long_sampled[1]]
 
-        if return_emissions :
-            _sampled_emm = [sampled_emissions[i-1] for i in range(1,len(sampled_states)) if
-                        sampled_states[i] != sampled_states[i-1]] # remove consucutive duplications
-            _sampled_states = [sampled_states[i] for i in range(1, len(sampled_states)) if
-                        sampled_states[i] != sampled_states[i - 1]]  # remove consucutive duplications
+        return sampled_emissions,sampled_states
 
-            return _sampled_emm, _sampled_states
-
-        _sampled = [sampled_states[i] for i in range(1, len(sampled_states) - 1) if
-                    sampled_states[i] != sampled_states[i - 1]]  # remove consucutive duplications
-        return _sampled
+        # if return_emissions :
+        #     _sampled_emm = [sampled_emissions[i-1] for i in range(1,len(sampled_states)) if
+        #                 sampled_states[i] != sampled_states[i-1]] # remove consucutive duplications
+        #     _sampled_states = [sampled_states[i] for i in range(1, len(sampled_states)) if
+        #                 sampled_states[i] != sampled_states[i - 1]]  # remove consucutive duplications
+        #
+        #     return _sampled_emm, _sampled_states
+        #
+        # _sampled = [sampled_states[i] for i in range(1, len(sampled_states) - 1) if
+        #             sampled_states[i] != sampled_states[i - 1]]  # remove consucutive duplications
+        # return _sampled
 
     def __build_known_mues_and_sigmes_to_state_mapping(self, mues,sigmas, state_to_distrbution_mapping):
         _known_mues_to_state = np.zeros((self.d,self.N))
@@ -285,7 +287,7 @@ class Simulator_for_Gibbs():
             transition_matrix_sparse[state] = {}
 
             n_of_out_trans =d# np.random.randint(d-1, d +1)
-            _possible_states = [s for s in possible_states if s != state]
+            _possible_states = [s for s in possible_states]
             out_trans = np.random.choice(_possible_states, size=n_of_out_trans, replace=False)
 
             for out_t in out_trans:
