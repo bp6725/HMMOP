@@ -20,9 +20,9 @@ class TestGibbsExperiment(TestCase):
             "bipartite": [False],
             "inner_outer_trans_probs_ratio": [300],
             'n_states': [10],
-            "known_dataset":[-1,"SCHIZX1_drug","POS"],
+            "known_dataset":["SCHIZX1_drug"],
             'sigma': [0.1],
-            'number_of_smapled_traj': [300],
+            'number_of_smapled_traj': [1000],
             # 'p_prob_of_observation': [0.5, (0.5, 0.1), (0.55, 0.45, 0.45, 0.55)],
             'p_prob_of_observation': [0.5],
             'N_itres': [2],
@@ -37,25 +37,33 @@ class TestGibbsExperiment(TestCase):
             "is_numerical_reconstruction_method" : [False]
         }
 
-        # model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite']
-        # params_dict = {
-        #     'is_acyclic': [True],
-        #     'known_mues': [True],
-        #     "is_few_observation_model": [True],
-        #     "is_only_seen": ["all"],
-        #     'N': [25],
-        #     'd': [5],
-        #     "bipartite": [False],
-        #     "inner_outer_trans_probs_ratio": [50],
-        #     'n_states': [6],
-        #     'sigma': [0.1],
-        #     'number_of_smapled_traj': [1500],
-        #     'p_prob_of_observation': [0.5],
-        #     'N_itres': [150],
-        #     'is_mh': [False],
-        #     'is_known_W': [True],
-        #     'w_smapler_n_iter': [80],
-        #     'is_multi_process': [False]}
+        model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
+        params_dict = {
+            'is_acyclic': [True],
+            'known_mues': [True],
+            #     "is_few_observation_model":[True,False],
+            "is_few_observation_model": [False],
+            "is_only_seen": ['observed', "all"],
+            'N': [50],
+            'd': [5],
+            "bipartite": [False],
+            "inner_outer_trans_probs_ratio": [50],
+            'n_states': [10],
+            # "known_dataset": ["SCHIZX1_plcebo", "SCHIZX1_drug"],
+            'sigma': [0.1],
+            'number_of_smapled_traj': [1000],
+            #     'p_prob_of_observation': [0.5],
+            'p_prob_of_observation': [1],
+            'N_itres': [100],
+            'is_mh': [False],
+            'w_smapler_n_iter': [120],
+            #     'is_known_W':[True,False],
+            'is_known_W': [False],
+            "is_multi_process": [True],
+            "PC_guess": [0.25, -1],
+            "N_guess": [-1, 4]
+        }
+
         GibbsExperiment.run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler = False)
 
     def test_run_multi_params_and_return_results(self):

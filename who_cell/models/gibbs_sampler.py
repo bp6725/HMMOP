@@ -260,6 +260,49 @@ class GibbsSampler() :
                 pbar.update(1)
         return  all_sampled_transitions, all_ws, all_transitions,all_states_picked_by_w,all_alphas
 
+    def sample_known_emissions_known_W(self, all_relvent_observations, start_probs,
+                               emissions_table,curr_w, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True):
+        emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
+        N = self.N if N is None else N
+        states = list(set(list(start_probs.keys()) + ['start', 'end']))
+
+        curr_trans = self.build_initial_transitions(states)
+
+        curr_walk,alpha = self.sample_walk_from_params(all_relvent_observations, N,
+                                                 emissions_table, start_probs,
+                                                 curr_w, curr_trans)
+        _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
+
+        sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
+
+        all_sampled_transitions = [sampled_transitions]
+        all_transitions = [curr_trans]
+        all_states_picked_by_w = [_states_picked_by_w]
+        with tqdm(total=Ng_iters) as pbar:
+            for i in range(Ng_iters):
+                curr_trans,alpha0 = self.sample_trans_from_params(sampled_transitions, states,
+                                                           curr_params =[curr_trans,curr_w,curr_walk,None,emissions_table],
+                                                           stage_name="transitions"  if is_mh else "no_mh",
+                                                           observations = all_relvent_observations)
+                _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
+
+                curr_walk,alpha2 = self.sample_walk_from_params(all_relvent_observations, N,
+                                                         emissions_table, start_probs,
+                                                         curr_w, curr_trans,
+                                                         curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                      emissions_table],
+                                                         stage_name="walk"  if is_mh else "no_mh",
+                                                         observations=all_relvent_observations)
+
+                sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
+
+                all_sampled_transitions.append(sampled_transitions)
+                all_transitions.append(curr_trans)
+                all_states_picked_by_w.append(_states_picked_by_w)
+                pbar.update(1)
+        return  all_sampled_transitions, None, all_transitions,all_states_picked_by_w,None
+
+
     def reconstruction_using_pomegranate(self,all_relvent_observations,state_to_distrbution_param_mapping,known_w=None):
         simulator = Simulator_for_Gibbs(None,None,1)
 
