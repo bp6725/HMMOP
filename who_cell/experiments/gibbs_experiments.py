@@ -238,6 +238,12 @@ class GibbsExperiment() :
                is_multi_process,use_pomegranate,is_numerical_reconstruction,is_pc_guess,is_known_dataset
 
     @staticmethod
+    def _rechoose_n_iters(params):
+        if params["is_few_observation_model"] == False : return 5
+        if params["p_prob_of_observation"] > 0.55 : return 25
+        return params["N_itres"]
+
+    @staticmethod
     def solve_return_results_mutual_model(params,pome_results,
                                           all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
                                           w_smapler_n_iter = 100,known_w = None):
@@ -250,6 +256,8 @@ class GibbsExperiment() :
         print(params)
 
         # solve
+
+        params["N_itres"] = GibbsExperiment._rechoose_n_iters(params)
 
         sampler = GibbsSampler(N, params['d'],transition_sampling_profile= transition_sampling_profile,
                                multi_process= is_multi_process)
