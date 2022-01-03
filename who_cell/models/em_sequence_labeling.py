@@ -4,6 +4,10 @@ import itertools
 from who_cell.models.gibbs_sampler import GibbsSampler
 from  tqdm import tqdm
 from pomegranate import State, HiddenMarkovModel, DiscreteDistribution
+from collections import Counter
+import networkx as nx
+from collections import Mapping
+import copy
 
 class EmSequenceLabeling():
     def __init__(self):
@@ -11,7 +15,7 @@ class EmSequenceLabeling():
 
     @staticmethod
     def sequence_labeling_known_emissions(all_relvent_observations,transitions_probs, start_probs,
-                               emissions_table, Ng_iters,N = 2):
+                               emissions_table, Ng_iters=10,N = 2):
         transitions_probs = {k: v for k, v in transitions_probs.items() if not k in ['start', 'end']}
         N = EmSequenceLabeling.__rebuild_N(N,all_relvent_observations)
         gibbs_sampler = GibbsSampler(N,number_of_states_in_time = None,
@@ -39,6 +43,99 @@ class EmSequenceLabeling():
                 pbar.update(1)
 
         return  [[optimal_states_seq[w] for w in optimal_W] for optimal_W,optimal_states_seq in zip(optimal_Ws,optimal_states_seqs)]
+
+    @staticmethod
+    def most_likely_path(observations,transitions_prob,start_probs,
+                               emissions_table, Ng_iters,N = 2):
+        guess_state_per_obs = [[EmSequenceLabeling._closest_state(emissions_table,obs) for obs in sentence] for sentence in observations]
+        pome_model = EmSequenceLabeling._build_pome_model_of_chain(transitions_prob,start_probs,emissions_table)
+
+        all_ml_paths = []
+        for sentence,guess in zip(observations,guess_state_per_obs) :
+            mlp = EmSequenceLabeling._ml_path(sentence,N,pome_model,
+                               emissions_table,guess, Ng_iters)
+            all_ml_paths.append(mlp)
+
+        return all_ml_paths
+
+    @staticmethod
+    def _closest_state(emissions_table,obs) :
+        max_state = None
+        max_prob = 0
+        for s in emissions_table.keys():
+            prob = emissions_table[s][obs]
+
+            if prob > max_prob :
+                max_prob = prob
+                max_state = s
+        return max_state
+
+
+    @staticmethod
+    def _ml_path(sentence,N,pome_model,emissions_table,guess, Ng_iters):
+        W = sorted(np.random.choice(range(max(N, len(sentence))), len(sentence), replace=False))
+        X = EmSequenceLabeling._return_initial_X(W,guess,N)
+
+        for iter in range(Ng_iters) :
+            W = EmSequenceLabeling._return_optimal_W(sentence,X,emissions_table)
+            X = EmSequenceLabeling._return_optimal_X(sentence,W,pome_model,N)
+
+        return None
+
+    @staticmethod
+    def _return_optimal_W(sentence, X, emissions_table) :
+        def is_connected(s_from, s_to):
+            return int((s_to[0] - s_from[0]) == 1 and s_to[1] > s_from[1])
+
+        graph_states = [(k, n) for k, n in itertools.product(list(range(len(sentence))), list(range(len(X)))) if k <= n]
+        transitions = {state: {_state: 1 for _state in graph_states if is_connected(state, _state)} for state in graph_states}
+        transitions = {k: v for k, v in transitions.items() if len(v) > 0}
+
+        final_transitions = copy.copy(transitions)
+        final_transitions["start"] = {}
+        for f_state,tos in graph_states:
+            if f_state[0] == 0:
+                final_transitions["start"][f_state] = 1
+            for t_state,_ in tos.items():
+                if t_state[0] == len(sentence)-1 :
+                    final_transitions[t_state] = {"end":1}
+
+        G = nx.DiGraph()
+        q = list(transitions.items())
+        while q:
+            v, d = q.pop()
+            for nv, nd in d.items():
+               G.add_edge(v, nv, color='y', weight=2)
+               if isinstance(nd, Mapping):
+                   q.append((nv, nd))
+
+
+
+
+    @staticmethod
+    def _return_optimal_X(sentence,W,pome_model,N):
+        sentence_with_nulls = []
+        j = 0
+        for i in range(N):
+            if i in W:
+                sentence_with_nulls.append(sentence[j])
+                j += 1
+            else:
+                sentence_with_nulls.append(None)
+
+        return pome_model.predict(sentence_with_nulls)
+
+    @staticmethod
+    def _return_initial_X(W,guess,N) :
+        init_X = []
+        j=0
+        for i in range(N) :
+            if i in W :
+                init_X.append(guess[j])
+                j += 1
+            else:
+                init_X.append(np.random.choice(guess))
+        return init_X
 
     @staticmethod
     def __rebuild_N(N, all_relvent_observations) :
