@@ -296,11 +296,11 @@ class GibbsExperiment() :
                                                    Ng_iters=params['N_itres'],
                                                    w_smapler_n_iter=w_smapler_n_iter, is_mh=params["is_mh"])
 
-                sampled_transitions_dict = all_sampled_transitions[-1]
-                sampled_mues = None
-                all_states = None
-                all_observations_sum = None
-                all_mues = None
+            sampled_transitions_dict = all_sampled_transitions[-1]
+            sampled_mues = None
+            all_states = None
+            all_observations_sum = None
+            all_mues = None
 
         if relevent_sampling_method == "PC from outside":
             if not is_known_emmi :
