@@ -313,7 +313,7 @@ class GibbsExperiment() :
                 sampled_transitions_dict = all_sampled_transitions[-1]
                 sampled_mues = all_mues[-1]
             else :
-                all_sampled_transitions, all_ws, all_transitions, all_states_picked_by_w, all_alphas = \
+                _, _, all_sampled_transitions, _, all_ws, all_transitions = \
                     sampler.sample_known_emissions_with_pc_guess(all_relvent_observations, pome_results['start_probabilites'],
                                                    {k: v for k, v in
                                                     pome_results['state_to_distrbution_param_mapping'].items() if

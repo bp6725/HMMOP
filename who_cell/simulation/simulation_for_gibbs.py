@@ -112,7 +112,7 @@ class Simulator_for_Gibbs():
         all_relvent_observations_and_ws = []
         for vec in all_full_sampled_trajs:
             p_prob_of_observation = np.random.normal(p_mean, p_std, 1)
-            p_prob_of_observation = p_prob_of_observation if p_prob_of_observation > 0.01 else 0.01
+            p_prob_of_observation = p_prob_of_observation if p_prob_of_observation > 0.05 else 0.05
             p_prob_of_observation = p_prob_of_observation if p_prob_of_observation < 1 else 1
 
             # binom_dist = binom(len(vec), p_prob_of_observation)
