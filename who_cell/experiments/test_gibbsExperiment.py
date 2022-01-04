@@ -2,7 +2,7 @@ from unittest import TestCase
 from who_cell.experiments.gibbs_experiments import GibbsExperiment
 from who_cell.models.gibbs_sampler import GibbsSampler
 import sys
-
+from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
 if not sys.warnoptions:
     import warnings
     warnings.simplefilter("ignore")
@@ -20,9 +20,9 @@ class TestGibbsExperiment(TestCase):
             "bipartite": [False],
             "inner_outer_trans_probs_ratio": [300],
             'n_states': [10],
-            #"known_dataset":["SCHIZX1_drug"],
-            'sigma': [0.1],
-            'number_of_smapled_traj': [1000],
+            "known_dataset":[-1,"SCHIZX1_drug"],
+            'sigma': [0.001],
+            'number_of_smapled_traj': [2],
             # 'p_prob_of_observation': [0.5, (0.5, 0.1), (0.55, 0.45, 0.45, 0.55)],
             'p_prob_of_observation': [0.5],
             'N_itres': [2],
@@ -37,46 +37,85 @@ class TestGibbsExperiment(TestCase):
             "is_numerical_reconstruction_method" : [False]
         }
 
-        model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
-        params_dict = {
-            'is_acyclic': [True],
-            'known_mues': [True],
-            "is_few_observation_model": [True, False],
-            "is_only_seen": ["all", "observed"],
-            'N': [20],
-            'd': [5],
-            "bipartite": [False],
-            "inner_outer_trans_probs_ratio": [50],
-            'n_states': [1],
-            "known_dataset": ["SCHIZX1_plcebo", "SCHIZX1_drug", "POS"],
-            'sigma': [0.1],
-            'number_of_smapled_traj': [15],
-            'p_prob_of_observation': [(0.5, 0.05), (0.5, 0.1), (0.5, 0.2), (0.5, 0.3)],
-            'N_itres': [1],
-            'is_mh': [False],
-            'w_smapler_n_iter': [100],
-            'is_known_W': [True],
-            "is_multi_process": [True],
-            "PC_guess": [0.5],
-            "numerical_reconstruction_pc": [0.5],
-            "is_numerical_reconstruction_method": [True, False]
-        }
+        # model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
+        # params_dict = {
+        #     'is_acyclic': [True],
+        #     'known_mues': [True],
+        #     "is_few_observation_model": [True, False],
+        #     "is_only_seen": ["all", "observed"],
+        #     'N': [20],
+        #     'd': [5],
+        #     "bipartite": [False],
+        #     "inner_outer_trans_probs_ratio": [50],
+        #     'n_states': [1],
+        #     "known_dataset": ["SCHIZX1_plcebo", "SCHIZX1_drug", "POS"],
+        #     'sigma': [0.1],
+        #     'number_of_smapled_traj': [15],
+        #     'p_prob_of_observation': [(0.5, 0.05), (0.5, 0.1), (0.5, 0.2), (0.5, 0.3)],
+        #     'N_itres': [1],
+        #     'is_mh': [False],
+        #     'w_smapler_n_iter': [100],
+        #     'is_known_W': [True],
+        #     "is_multi_process": [False],
+        #     "PC_guess": [0.5],
+        #     "numerical_reconstruction_pc": [0.5],
+        #     "is_numerical_reconstruction_method": [True, False]
+        # }
         all_models_results_known_sets = GibbsExperiment.run_multi_params_and_return_results(params_dict,
                                                                                             model_defining_params_pre,
                                                                                             skip_sampler=False)
 
     def test_run_multi_params_and_return_results(self):
-        model_defining_params_pre = ['N', "d", "n_states"]
-        params_dict = {
-            'N': [6,12],
-            'd': [8],
-            'n_states': [20],
-            'number_of_smapled_traj': [50, 30],
-            'p_prob_of_observation': [0.7, 1],
-            'N_itres': [10],
-            'w_smapler_n_iter': [10]}
+        mutual_model_params_dict = {
+            'is_acyclic': True,
+            'known_mues': True,
+            "is_few_observation_model": True,
+            "is_only_seen": 'all',
+            'N': 50,
+            'd': 5,
+            "bipartite": False,
+            "inner_outer_trans_probs_ratio": 50,
+            'n_states': 10,
+            'sigma': 0.001,
+            'number_of_smapled_traj': 1000,
+            'p_prob_of_observation': 0.5,
+            'N_itres': 60,
+            'is_mh': False,
+            "known_dataset": -1,
+            'w_smapler_n_iter': 100}
+        run_name = "P(C) = 0.5"
 
-        all_models_results = GibbsExperiment.run_multi_params_and_return_results(params_dict,model_defining_params_pre)
+        simulator = Simulator_for_Gibbs(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
+                                        mutual_model_params_dict['n_states'], easy_mode=True,
+                                        max_number_of_sampled_traj=mutual_model_params_dict["number_of_smapled_traj"],
+                                        sigma=mutual_model_params_dict[
+                                            'sigma'])  # we need max_number_of_sampled_traj to know how much traj to pre sample so the traj will be mutual
+
+        pome_results = simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
+                                                  simulator.mues, simulator.sigmas, False,
+                                                  inner_outer_trans_probs_ratio=mutual_model_params_dict[
+                                                      'inner_outer_trans_probs_ratio'],
+                                                  mutual_model_params_dict=mutual_model_params_dict)
+
+        simulator.update_known_mues_and_sigmes_to_state_mapping(pome_results["state_to_distrbution_param_mapping"])
+
+        (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,
+         all_relvent_sampled_trajs_states, all_ws), _ = \
+            simulator.simulate_observations(pome_results["model"], mutual_model_params_dict,
+                                            pome_results['params_signature'], from_pre_sampled_traj=True)
+
+        sampler = GibbsSampler(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
+                               transition_sampling_profile=mutual_model_params_dict["is_only_seen"],
+                               multi_process=False)
+        all_states, _, all_sampled_transitions, _, all_ws, all_transitions = sampler.sample(all_relvent_observations,
+                                                                                            pome_results[
+                                                                                                'start_probabilites'],
+                                                                                            simulator.states_known_mues,
+                                                                                            simulator.states_known_sigmas,
+                                                                                            mutual_model_params_dict[
+                                                                                                'N_itres'],
+                                                                                            w_smapler_n_iter=100,
+                                                                                            is_mh=False)
 
     def test_POS(self):
         import pickle

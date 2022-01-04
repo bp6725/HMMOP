@@ -74,7 +74,7 @@ class Simulator_for_Gibbs():
             if len(__t) <2 : continue
 
             _traj.append(__t)
-            _traj_states.append(__s)
+            _traj_states.append(__s[1:])
             i += 1
         return _traj,_traj_states
 
