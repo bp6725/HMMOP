@@ -3,13 +3,16 @@ from who_cell.experiments.gibbs_experiments import GibbsExperiment
 from who_cell.models.gibbs_sampler import GibbsSampler
 import sys
 from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
+
 if not sys.warnoptions:
     import warnings
+
     warnings.simplefilter("ignore")
+
 
 class TestGibbsExperiment(TestCase):
     def test_run_multi_params_and_plot_report(self):
-        model_defining_params_pre = ['N', "d", "n_states",'is_acyclic','sigma','bipartite',"known_dataset"]
+        model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', "known_dataset"]
         params_dict = {
             'known_mues': [True],
             "is_few_observation_model": [False],
@@ -20,7 +23,7 @@ class TestGibbsExperiment(TestCase):
             "bipartite": [False],
             "inner_outer_trans_probs_ratio": [300],
             'n_states': [10],
-            "known_dataset":[-1,"SCHIZX1_drug"],
+            "known_dataset": [-1, "SCHIZX1_drug"],
             'sigma': [0.001],
             'number_of_smapled_traj': [2],
             # 'p_prob_of_observation': [0.5, (0.5, 0.1), (0.55, 0.45, 0.45, 0.55)],
@@ -31,36 +34,36 @@ class TestGibbsExperiment(TestCase):
             'w_smapler_n_iter': [80],
             'is_multi_process': [False],
             "use_pomegranate": [False],
-            "PC_guess" : ["unknown",-1,0.75,0.8],
-            "N_guess" :[5,-1,3],
+            "PC_guess": ["unknown", -1, 0.75, 0.8],
+            "N_guess": [5, -1, 3],
             "numerical_reconstruction_pc": [-1],
-            "is_numerical_reconstruction_method" : [False]
+            "is_numerical_reconstruction_method": [False]
         }
 
-        # model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
-        # params_dict = {
-        #     'is_acyclic': [True],
-        #     'known_mues': [True],
-        #     "is_few_observation_model": [True, False],
-        #     "is_only_seen": ["all", "observed"],
-        #     'N': [20],
-        #     'd': [5],
-        #     "bipartite": [False],
-        #     "inner_outer_trans_probs_ratio": [50],
-        #     'n_states': [1],
-        #     "known_dataset": ["SCHIZX1_plcebo", "SCHIZX1_drug", "POS"],
-        #     'sigma': [0.1],
-        #     'number_of_smapled_traj': [15],
-        #     'p_prob_of_observation': [(0.5, 0.05), (0.5, 0.1), (0.5, 0.2), (0.5, 0.3)],
-        #     'N_itres': [1],
-        #     'is_mh': [False],
-        #     'w_smapler_n_iter': [100],
-        #     'is_known_W': [True],
-        #     "is_multi_process": [False],
-        #     "PC_guess": [0.5],
-        #     "numerical_reconstruction_pc": [0.5],
-        #     "is_numerical_reconstruction_method": [True, False]
-        # }
+        model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
+        params_dict = {
+            'is_acyclic': [True],
+            'known_mues': [True],
+            "is_few_observation_model": [False, True],
+            "is_only_seen": ["all"],
+            'N': [10],
+            'd': [5],
+            "bipartite": [False],
+            "inner_outer_trans_probs_ratio": [50],
+            'n_states': [10],
+            "known_dataset": ["SCHIZX1_plcebo", -1, "POS"],
+            'sigma': [0.1],
+            'number_of_smapled_traj': [1500],
+            'p_prob_of_observation': [(0.55, 0.45, 0.45, 0.55), (0.65, 0.35, 0.35, 0.65), (0.7, 0.3, 0.45, 0.55)],
+            'N_itres': [1],
+            'is_mh': [False],
+            'w_smapler_n_iter': [100],
+            'is_known_W': [True, False],
+            "is_multi_process": [True],
+            "PC_guess": [0.5],
+            "numerical_reconstruction_pc": [0.5],
+            "is_numerical_reconstruction_method": [True, False]
+        }
         all_models_results_known_sets = GibbsExperiment.run_multi_params_and_return_results(params_dict,
                                                                                             model_defining_params_pre,
                                                                                             skip_sampler=False)
@@ -70,16 +73,16 @@ class TestGibbsExperiment(TestCase):
             'is_acyclic': True,
             'known_mues': True,
             "is_few_observation_model": True,
-            "is_only_seen": 'all',
+            "is_only_seen": 'observed',
             'N': 50,
             'd': 5,
             "bipartite": False,
             "inner_outer_trans_probs_ratio": 50,
             'n_states': 10,
             'sigma': 0.001,
-            'number_of_smapled_traj': 1000,
+            'number_of_smapled_traj': 200,
             'p_prob_of_observation': 0.5,
-            'N_itres': 60,
+            'N_itres': 2,
             'is_mh': False,
             "known_dataset": -1,
             'w_smapler_n_iter': 100}
@@ -107,29 +110,23 @@ class TestGibbsExperiment(TestCase):
         sampler = GibbsSampler(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
                                transition_sampling_profile=mutual_model_params_dict["is_only_seen"],
                                multi_process=False)
-        all_states, _, all_sampled_transitions, _, all_ws, all_transitions = sampler.sample(all_relvent_observations,
-                                                                                            pome_results[
-                                                                                                'start_probabilites'],
-                                                                                            simulator.states_known_mues,
-                                                                                            simulator.states_known_sigmas,
-                                                                                            mutual_model_params_dict[
-                                                                                                'N_itres'],
-                                                                                            w_smapler_n_iter=100,
-                                                                                            is_mh=False)
+        all_states, _, all_sampled_transitions, _, all_ws, all_transitions = sampler._new_sample_guess_pc(
+            all_relvent_observations, pome_results['start_probabilites'],
+            simulator.states_known_mues, simulator.states_known_sigmas, mutual_model_params_dict['N_itres'], 0.5)
 
     def test_POS(self):
         import pickle
         with open(r"../../benchmarks/POS_tagging/all_you_need_for_sampling.pkl", 'rb') as f:
-            [few_obs_test_set_words, start_probs, emms_probs, number_of_iters, _known_N] = pickle.load( f)
+            [few_obs_test_set_words, start_probs, emms_probs, number_of_iters, _known_N] = pickle.load(f)
 
-        gs = GibbsSampler(2,5)
+        gs = GibbsSampler(2, 5)
         res = gs.sample_known_emissions(few_obs_test_set_words, start_probs, emms_probs, number_of_iters, N=30)
-
 
     def test_Penn_POS(self):
         import pickle
         with open(r"C:\Repos\WhoCell\benchmarks\POS_tagging\tmp_cache.pkl", 'rb') as f:
-            [test_set_words,start_probs,emms_probs,number_of_iters] = pickle.load( f)
+            [test_set_words, start_probs, emms_probs, number_of_iters] = pickle.load(f)
 
-        gs = GibbsSampler(2,5)
-        all_sampled_transitions, all_ws, all_transitions,_states_picked_by_w = gs.sample_known_emissions(test_set_words,start_probs,emms_probs,number_of_iters)
+        gs = GibbsSampler(2, 5)
+        all_sampled_transitions, all_ws, all_transitions, _states_picked_by_w = gs.sample_known_emissions(
+            test_set_words, start_probs, emms_probs, number_of_iters)
