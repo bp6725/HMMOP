@@ -1,19 +1,10 @@
 from who_cell.simulation.meta_network_simulator import MetaNetworkSimulator
-
 import sys
 sys.path.insert(0,'C:\Repos\pomegranate')
-import pomegranate
 from pomegranate import HiddenMarkovModel ,State
-from pomegranate.distributions import IndependentComponentsDistribution
-from pomegranate.distributions import NormalDistribution,DiscreteDistribution
-
 from who_cell.Utils import PomegranateUtils
-
-
 import itertools
 from tqdm import tqdm
-
-import numpy as np
 import networkx as nx
 
 class PomegranateNetworkModelBuilder() :

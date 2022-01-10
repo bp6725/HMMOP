@@ -71,7 +71,6 @@ class NumericalCorrection():
         else :
             return pcs[best_pc_idx], pcs[best_pc_idx + 1]
 
-
     @staticmethod
     def rebuild_transitions_dict(transitions, all_states):
         _transitions = {str(k): {str(kk): vv for kk, vv in v.items() if not kk in ["start", 'end']} for
@@ -99,7 +98,7 @@ class NumericalCorrection():
         return final
 
     @staticmethod
-    def reconstruct_full_transitions_matrix_from_few(few_transition_matrix, pc,avg_seq_len):
+    def reconstruct_full_transitions_matrix_from_few(few_transition_matrix, pc,avg_seq_len=1000):
         _few_transition_matrix = copy.copy(few_transition_matrix)
 
         _N = int(((1-pc)/pc)*avg_seq_len) + 1
@@ -113,7 +112,7 @@ class NumericalCorrection():
 
 
     @staticmethod
-    def reconstruct_full_transitions_dict_from_few(few_transition_dict, pc_guess,start_probabilites,avg_seq_len):
+    def reconstruct_full_transitions_dict_from_few(few_transition_dict, pc_guess,start_probabilites,avg_seq_len=1000):
         all_states = list(start_probabilites.keys())
         few_transition_dict = NumericalCorrection.rebuild_transitions_dict(few_transition_dict,all_states)
         few_transition_matrix, df = NumericalCorrection.buil_np_matrix(few_transition_dict)
