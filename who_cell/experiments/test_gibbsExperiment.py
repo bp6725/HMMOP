@@ -53,7 +53,7 @@ class TestGibbsExperiment(TestCase):
             'n_states': [10],
             "known_dataset": ["SCHIZX1_plcebo", -1, "POS"],
             'sigma': [0.1],
-            'number_of_smapled_traj': [1500],
+            'number_of_smapled_traj': [15],
             'p_prob_of_observation': [(0.55, 0.45, 0.45, 0.55), (0.65, 0.35, 0.35, 0.65), (0.7, 0.3, 0.45, 0.55)],
             'N_itres': [1],
             'is_mh': [False],
@@ -62,7 +62,8 @@ class TestGibbsExperiment(TestCase):
             "is_multi_process": [True],
             "PC_guess": [0.5],
             "numerical_reconstruction_pc": [0.5],
-            "is_numerical_reconstruction_method": [True, False]
+            "is_numerical_reconstruction_method": [True, False],
+            "exp_name" :["test"]
         }
         all_models_results_known_sets = GibbsExperiment.run_multi_params_and_return_results(params_dict,
                                                                                             model_defining_params_pre,

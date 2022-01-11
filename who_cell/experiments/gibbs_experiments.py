@@ -30,6 +30,8 @@ from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
 from who_cell.models.gibbs_sampler import GibbsSampler
 from who_cell.experiments.experiment_report import ExperimentReport
 import pickle
+import datetime
+import json
 
 class GibbsExperiment() :
     def __init__(self,N,d,n_states,number_of_smapled_traj,p_prob_of_observation,N_itres):
@@ -116,18 +118,11 @@ class GibbsExperiment() :
                 simulator.simulate_observations(pome_results["model"],combined_params,
                                                 pome_results['params_signature'],from_pre_sampled_traj = True)
 
-            _cache_path = ''.join([f"{str(k)[:3]}{str(v)[:3]}" for k,v in combined_params.items()])
-            is_from_cache = skip_sampler and os.path.exists(_cache_path)
-            if is_from_cache :
-                with open(_cache_path,'rb') as f :
-                    result = pickle.load(f)
-            else :
-                result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
-                                    pome_results,all_relvent_observations,mues_for_sampler,sigmas_for_sampler,
-                                    w_smapler_n_iter = combined_params['w_smapler_n_iter'],known_w=known_ws)
-                if skip_sampler :
-                    with open(_cache_path,'wb') as f :
-                        pickle.dump(result,f)
+            result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
+                                                                       pome_results, all_relvent_observations,
+                                                                       mues_for_sampler, sigmas_for_sampler,
+                                                                       w_smapler_n_iter=combined_params[
+                                                                           'w_smapler_n_iter'], known_w=known_ws)
             if result is None : continue
 
             #region update result param
@@ -174,7 +169,30 @@ class GibbsExperiment() :
             #         all_results_of_model[len(hyper_params_sets) + exp_idx] = _result
             #         # endregion
 
+
+            GibbsExperiment.save_to_cache(_result,combined_params)
+
         return all_results_of_model
+
+    @staticmethod
+    def save_to_cache(result,combined_params) :
+        dir_cache_path = combined_params["exp_name"] if "exp_name" in combined_params.keys() else "Global"
+
+        date_time  = str(datetime.datetime.now())[:16].replace('-','').replace(':','')
+        mutual_params_summ = '.'.join([f"{str(k)[:3]}{str(v)[:3]}" for k, v in result['mutual_params'].items()])
+        cache_path = os.path.join(r"../../cache",dir_cache_path,f"{mutual_params_summ}_{date_time}.pkl")
+        params_path = os.path.join(r"../../cache",dir_cache_path,f"{mutual_params_summ}_{date_time}_params.txt")
+
+        if not os.path.exists(os.path.dirname(cache_path)):
+            os.makedirs(os.path.dirname(cache_path))
+
+        with open(cache_path,'wb') as f :
+            pickle.dump(result,f)
+
+        with open(params_path,'w') as f :
+            f.write(json.dumps(combined_params))
+
+        return
 
     @staticmethod
     def run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler,
