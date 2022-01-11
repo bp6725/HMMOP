@@ -1365,6 +1365,9 @@ class GibbsSampler() :
         if self.transition_sampling_profile == 'extended':
             _transition_dict = all_transitions.extended_observed_transitions_dict.items()
 
+        if not self.transition_sampling_profile in ["all","observed","extended"]:
+            _transition_dict = all_transitions.items()
+
         for state,poss_trans in _transition_dict:
             poss_trans_states = [state for state in poss_trans.keys()]
             poss_trans_counts = [state for state in poss_trans.values()]
