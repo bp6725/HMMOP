@@ -120,7 +120,7 @@ class GibbsSampler() :
                                   known_mues, sigmas, Ng_iters)
         else :
             return self._new_sample_guess_pc(all_relvent_observations, start_probs,
-                            known_mues, sigmas, Ng_iters, w_smapler_n_iter, PC_guess, is_mh)
+                                            known_mues, sigmas, Ng_iters, PC_guess)
 
     def probability_over_known_transition(self,known_emissions, missing_sentences, curr_trans, start_probs,
                                           emmisions_params, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
