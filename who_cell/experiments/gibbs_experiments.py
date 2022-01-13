@@ -19,6 +19,7 @@ from ast import literal_eval as make_tuple
 from IPython.display import display
 import matplotlib.pyplot as plt
 from toolz import unique
+import glob
 from who_cell.models.numerical_correction import NumericalCorrection
 
 from numba import jit
@@ -193,6 +194,17 @@ class GibbsExperiment() :
             f.write(json.dumps(combined_params))
 
         return
+
+    @staticmethod
+    def load_all_experiments_from_folder(folder_path):
+        all_exp = {}
+        i=0
+        for file in glob.glob(folder_path +"\*.pkl"):
+            with open(file,"rb") as f :
+                res = pickle.load(f)
+            all_exp[i] = res
+            i += 1
+        return all_exp
 
     @staticmethod
     def run_multi_params_and_plot_report(params_dict,model_defining_params_pre,skip_sampler,
