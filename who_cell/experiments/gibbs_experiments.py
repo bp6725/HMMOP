@@ -200,6 +200,7 @@ class GibbsExperiment() :
         all_exp = {}
         i=0
         for file in glob.glob(folder_path +"\*.pkl"):
+            print(file)
             with open(file,"rb") as f :
                 res = pickle.load(f)
             all_exp[i] = res
