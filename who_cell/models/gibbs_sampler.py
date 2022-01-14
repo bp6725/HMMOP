@@ -66,7 +66,7 @@ class GibbsSampler() :
 
         all_sampled_transitions = [sampled_transitions]
         all_transitions = [curr_trans]
-        all_states = [sampled_states]
+        all_states = [curr_walk]
         all_observations_sum = [observations_sum]
         all_mues = [curr_mus]
         all_ws = [curr_w]
@@ -106,7 +106,7 @@ class GibbsSampler() :
 
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
-                all_states.append(sampled_states)
+                all_states.append(curr_walk)
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
                 all_ws.append(curr_w)
@@ -168,7 +168,7 @@ class GibbsSampler() :
 
         all_sampled_transitions = [sampled_transitions]
         all_transitions = [curr_trans]
-        all_states = [sampled_states]
+        all_states = [curr_walk]
         all_observations_sum = [observations_sum]
         all_mues = [curr_mus]
         all_ws = [curr_w]
@@ -199,7 +199,7 @@ class GibbsSampler() :
 
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
-                all_states.append(sampled_states)
+                all_states.append(curr_walk)
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
                 all_ws.append(curr_w)
@@ -541,7 +541,7 @@ class GibbsSampler() :
 
         all_sampled_transitions = [curr_trans]
         all_transitions = [curr_trans]
-        all_states = [sampled_states]
+        all_states = [X_walk]
         all_observations_sum = [observations_sum]
         all_mues = [curr_mus]
         all_ws = [const_w]
@@ -615,7 +615,7 @@ class GibbsSampler() :
 
         all_sampled_transitions = [sampled_transitions]
         all_transitions = [curr_trans]
-        all_states = [sampled_states]
+        all_states = [curr_walk]
         all_observations_sum = [observations_sum]
         all_mues = [curr_mus]
 
