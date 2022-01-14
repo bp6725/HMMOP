@@ -199,7 +199,7 @@ class GibbsExperiment() :
     def load_all_experiments_from_folder(folder_path):
         all_exp = {}
         i=0
-        for file in glob.glob(folder_path +"\*.pkl"):
+        for file in glob.glob(folder_path ):
             print(file)
             with open(file,"rb") as f :
                 res = pickle.load(f)
