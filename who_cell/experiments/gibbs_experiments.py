@@ -178,11 +178,7 @@ class GibbsExperiment() :
     @staticmethod
     def save_to_cache(result,combined_params) :
         dir_cache_path = combined_params["exp_name"] if "exp_name" in combined_params.keys() else "Global"
-
-        date_time  = str(datetime.datetime.now())[:16].replace('-','').replace(':','')
-        mutual_params_summ = '.'.join([f"{str(k)[:3]}{str(v)[:3]}" for k, v in result['mutual_params'].items()])
-        cache_path = os.path.join(r"../../cache",dir_cache_path,f"{mutual_params_summ}_{date_time}.pkl")
-        params_path = os.path.join(r"../../cache",dir_cache_path,f"{mutual_params_summ}_{date_time}_params.txt")
+        cache_path,params_path = GibbsExperiment._build_exp_cache_name(result['mutual_params'],dir_cache_path,True)
 
         if not os.path.exists(os.path.dirname(cache_path)):
             os.makedirs(os.path.dirname(cache_path))
@@ -194,6 +190,18 @@ class GibbsExperiment() :
             f.write(json.dumps(combined_params))
 
         return
+
+    @staticmethod
+    def _build_exp_cache_name(params_dict,dir_cache_path,with_time = True):
+        if with_time :
+            date_time = str(datetime.datetime.now())[:16].replace('-', '').replace(':', '')
+        else :
+            date_time =''
+        mutual_params_summ = '.'.join([f"{str(k)[:3]}{str(v)[:3]}" for k, v in params_dict.items()])
+        cache_path = os.path.join(r"../../cache", dir_cache_path, f"{mutual_params_summ}_{date_time}.pkl")
+        params_path = os.path.join(r"../../cache", dir_cache_path, f"{mutual_params_summ}_{date_time}_params.txt")
+
+        return cache_path,params_path
 
     @staticmethod
     def load_all_experiments_from_folder(folder_path):
@@ -232,14 +240,9 @@ class GibbsExperiment() :
             if (params["PC_guess"] != -1) and (params["N_guess"] != -1):
                 return False
 
-        # is_few_obse_exp = (params["PC_guess"] != -1 if "PC_guess" in params.keys() else False) or \
-        #                   (params["is_numerical_reconstruction_method"] if "is_numerical_reconstruction_method" in
-        #                                                                    params.keys() else False) or (
-        #                       params["N_guess"] != -1 if "N_guess" in params.keys() else False)
-        # if is_few_obse_exp and (not params['is_few_observation_model']) :
-        #     return False
-        # if is_few_obse_exp and (params["is_known_W"]) :
-            # return False
+        if "PC_guess" in params.keys():
+            if (params["PC_guess"] == "known") and (type(params["p_prob_of_observation"]) is tuple ):
+                return False
 
         return True
 
@@ -334,23 +337,28 @@ class GibbsExperiment() :
             all_mues = None
 
         if relevent_sampling_method == "PC from outside":
+            if params["PC_guess"] == 'known' :
+                _pc_guess = params['p_prob_of_observation']
+            else :
+                _pc_guess = params["PC_guess"]
+
             if not is_known_emmi :
                 all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
                     sampler.sample_guess_pc(all_relvent_observations, pome_results['start_probabilites'],
                                             mues_for_sampler, sigmas_for_sampler, params['N_itres'],
-                                            PC_guess=params["PC_guess"],
+                                            PC_guess=_pc_guess,
                                             w_smapler_n_iter=w_smapler_n_iter,
                                             is_mh=params["is_mh"])
                 sampled_transitions_dict = all_sampled_transitions[-1]
                 sampled_mues = all_mues[-1]
             else :
-                _, _, all_sampled_transitions, _, all_ws, all_transitions = \
-                    sampler.sample_known_emissions_with_pc_guess(all_relvent_observations, pome_results['start_probabilites'],
+                all_states, all_sampled_transitions, all_ws, all_transitions = \
+                    sampler._new_sample_known_emissions_with_pc_guess(all_relvent_observations, pome_results['start_probabilites'],
                                                    {k: v for k, v in
                                                     pome_results['state_to_distrbution_param_mapping'].items() if
                                                     k != 'start'},
                                                    Ng_iters=params['N_itres'],
-                                                   w_smapler_n_iter=w_smapler_n_iter,PC_guess=params["PC_guess"],
+                                                   w_smapler_n_iter=w_smapler_n_iter,PC_guess=_pc_guess,
                                                                  is_mh=params["is_mh"])
                 sampled_transitions_dict = all_sampled_transitions[-1]
                 sampled_mues = None
