@@ -322,7 +322,7 @@ class GibbsExperiment() :
                                    w_smapler_n_iter=w_smapler_n_iter,
                                    is_mh=params["is_mh"])
             else :
-                all_sampled_transitions, all_ws, all_transitions, all_states_picked_by_w, all_alphas = \
+                all_sampled_transitions, all_ws, all_transitions, all_states, all_alphas = \
                     sampler.sample_known_emissions(all_relvent_observations, pome_results['start_probabilites'],
                                                    {k: v for k, v in
                                                     pome_results['state_to_distrbution_param_mapping'].items() if
@@ -332,7 +332,6 @@ class GibbsExperiment() :
 
             sampled_transitions_dict = all_sampled_transitions[-1]
             sampled_mues = None
-            all_states = None
             all_observations_sum = None
             all_mues = None
 
@@ -377,7 +376,7 @@ class GibbsExperiment() :
                                        w_smapler_n_iter=1,
                                        is_mh=params["is_mh"])
             else :
-                all_sampled_transitions, all_ws, all_transitions, all_states_picked_by_w, all_alphas = \
+                all_sampled_transitions, all_ws, all_transitions, all_states, all_alphas = \
                     sampler.sample_known_emissions(all_relvent_observations, pome_results['start_probabilites'],
                                                    {k: v for k, v in
                                                     pome_results['state_to_distrbution_param_mapping'].items() if
@@ -387,7 +386,6 @@ class GibbsExperiment() :
 
             sampled_transitions_dict = all_sampled_transitions[-1]
             sampled_mues = None
-            all_states = None
             all_observations_sum = None
             all_mues = None
 
@@ -408,13 +406,12 @@ class GibbsExperiment() :
                 sampled_transitions_dict = all_sampled_transitions[-1]
                 sampled_mues = all_mues[-1]
             else :
-                all_sampled_transitions, _, all_transitions, all_states_picked_by_w, _ = \
+                all_sampled_transitions, _, all_transitions, all_states, _ = \
                     sampler.sample_known_emissions_known_W( all_relvent_observations, pome_results['start_probabilites'],
                                                 {k: v for k, v in
                                                  pome_results['state_to_distrbution_param_mapping'].items() if
                                                  k != 'start'},known_w, params['N_itres'],
                                                 w_smapler_n_iter = w_smapler_n_iter,N = None,is_mh=params["is_mh"])
-                all_states = None
                 all_observations_sum = None
                 all_mues=None
                 all_ws = None
