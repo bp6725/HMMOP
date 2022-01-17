@@ -114,6 +114,13 @@ class GibbsExperiment() :
             _hyper_param_set, combined_params, mues_for_sampler, sigmas_for_sampler = GibbsExperiment._return_hyper_params_set(hyper_param_set,
                                                                                                            mutual_model_params_dict,simulator )
 
+            exp_cache = GibbsExperiment.extrect_exp_cache_name(combined_params, mutual_model_params_dict)
+            if skip_sampler and exp_cache :
+                _result = GibbsExperiment._load_from_cache(combined_params,exp_cache)
+                all_results_of_model[exp_idx] = _result
+                continue
+
+
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
             all_relvent_sampled_trajs_states,known_ws),_ = \
                 simulator.simulate_observations(pome_results["model"],combined_params,
@@ -143,34 +150,6 @@ class GibbsExperiment() :
 
             all_results_of_model[exp_idx] = _result
 
-            #region update results params if numerical reconstruction
-            # if "numerical_reconstruction_pc" in combined_params.keys() :
-            #     if combined_params["numerical_reconstruction_pc"] != -1 :
-            #         _result = copy.copy(result)
-            #
-            #         _result['all_transitions'] = list(
-            #             map(lambda x: NumericalCorrection.reconstruct_full_transitions_dict_from_few(x.copy(),
-            #                                                                                          combined_params[
-            #                                                                                              'numerical_reconstruction_pc'],
-            #                                                                                          pome_results['start_probabilites']),
-            #                 _result['all_transitions']))
-            #
-            #         _result['mutual_params'] = copy.copy(mutual_model_params_dict)
-            #         _result['hyper_params'] = copy.copy(_hyper_param_set)
-            #         _result["all_full_sampled_trajs"] = copy.copy(all_full_sampled_trajs)
-            #         _result["all_full_sampled_trajs_states"] = copy.copy(all_full_sampled_trajs_states)
-            #         _result["all_relvent_sampled_trajs_states"] = copy.copy(all_relvent_sampled_trajs_states)
-            #         _result['known_ws'] = copy.copy(known_ws)
-            #         _result["simulator"] = copy.copy(simulator)
-            #         _result["sigmas"] = copy.copy(simulator.sigmas)
-            #         _result["original_pome_model"] = copy.copy(pome_results["model"])
-            #         _result["state_to_distrbution_mapping"] = copy.copy(pome_results["state_to_distrbution_mapping"])
-            #         _result['start_probabilites'] = copy.copy(pome_results['start_probabilites'])
-            #
-            #         all_results_of_model[len(hyper_params_sets) + exp_idx] = _result
-            #         # endregion
-
-
             GibbsExperiment.save_to_cache(_result,combined_params)
 
         return all_results_of_model
@@ -189,7 +168,35 @@ class GibbsExperiment() :
         with open(params_path,'w') as f :
             f.write(json.dumps(combined_params))
 
-        return
+        return None
+
+    @staticmethod
+    def extrect_exp_cache_name(combined_params,mutual_model_params_dict):
+        dir_cache_path = combined_params["exp_name"] if "exp_name" in combined_params.keys() else "Global"
+        cache_path, params_path = GibbsExperiment._build_exp_cache_name(mutual_model_params_dict, dir_cache_path, False)
+
+        files_in_folder = GibbsExperiment.load_all_experiments_from_folder(os.path.join(r"../../cache/", dir_cache_path),
+                                                                           only_path=True)
+        same_experiment = list(filter(lambda x: os.path.basename(cache_path).split('.pkl')[0] in x,files_in_folder.values()))
+
+        if len(same_experiment) == 0 : return False
+
+        same_exp_pkl = list(filter(lambda x: '.pkl' in x, same_experiment))
+        times = list(map(lambda x : x.split('_')[-1].split('.pkl')[0],same_exp_pkl))
+        times_as_date_times = list(map(lambda x:datetime.datetime(int(x[:4]),int(x[4:6]),int(x[6:8]),int(x[9:11]),int(x[11:13])),times))
+
+        most_relevent = same_exp_pkl[np.argmax(times_as_date_times)]
+
+        return most_relevent
+
+    @staticmethod
+    def _load_from_cache(combined_params,exp_cache) :
+        dir_cache_path = combined_params["exp_name"] if "exp_name" in combined_params.keys() else "Global"
+
+        with open(os.path.join(r"../../cache/", dir_cache_path,exp_cache),'rb') as f :
+            res =pickle.load(f)
+
+        return res
 
     @staticmethod
     def _build_exp_cache_name(params_dict,dir_cache_path,with_time = True):
@@ -204,14 +211,16 @@ class GibbsExperiment() :
         return cache_path,params_path
 
     @staticmethod
-    def load_all_experiments_from_folder(folder_path):
+    def load_all_experiments_from_folder(folder_path,only_path=False):
         all_exp = {}
         i=0
-        for file in glob.glob(folder_path ):
-            print(file)
-            with open(file,"rb") as f :
-                res = pickle.load(f)
-            all_exp[i] = res
+        for file in os.listdir(folder_path ):
+            if only_path :
+                all_exp[i] = file
+            else :
+                with open(os.path.join(folder_path,file),"rb") as f :
+                    res = pickle.load(f)
+                all_exp[i] = res
             i += 1
         return all_exp
 
