@@ -2,118 +2,171 @@ import numpy as np
 from itertools import chain
 import itertools
 from who_cell.models.gibbs_sampler import GibbsSampler
-from  tqdm import tqdm
+from tqdm import tqdm
 from pomegranate import State, HiddenMarkovModel, DiscreteDistribution
 from collections import Counter
 import networkx as nx
 from collections import Mapping
 import copy
+from collections import Mapping
+from pomegranate.distributions import NormalDistribution,DiscreteDistribution
+from who_cell.models.utils import Utils
 
 class EmSequenceLabeling():
     def __init__(self):
         pass
 
+    # @staticmethod
+    # def sequence_labeling_known_emissions(all_relvent_observations, transitions_probs, start_probs,
+    #                                       emissions_table, Ng_iters=10, N=2):
+    #     transitions_probs = {k: v for k, v in transitions_probs.items() if not k in ['start', 'end']}
+    #     N = EmSequenceLabeling.__rebuild_N(N, all_relvent_observations)
+    #
+    #     N = list(map(lambda x: int(x * 1.2), N))
+    #
+    #     gibbs_sampler = GibbsSampler(N, number_of_states_in_time=None,
+    #                                  transition_sampling_profile='all', multi_process=False)
+    #
+    #     emissions_table = gibbs_sampler.impute_emissions_table_with_zeros(emissions_table, all_relvent_observations,
+    #                                                                       True)
+    #     curr_trans = transitions_probs
+    #
+    #     if type(N) is list:
+    #         curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs, _N in
+    #                   zip(all_relvent_observations, N)]
+    #     else:
+    #         curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+    #                   all_relvent_observations]
+    #
+    #     optimal_states_seqs, _ = gibbs_sampler.sample_walk_from_params(all_relvent_observations, N,
+    #                                                                    emissions_table, start_probs,
+    #                                                                    curr_w, curr_trans)
+    #     with tqdm(total=Ng_iters) as pbar:
+    #         for i in range(Ng_iters):
+    #             optimal_Ws = EmSequenceLabeling.calculate_optimal_Ws(optimal_states_seqs, all_relvent_observations,
+    #                                                                  emissions_table)
+    #             optimal_states_seqs = EmSequenceLabeling.calculate_optimal_states_seqs(optimal_Ws,
+    #                                                                                    all_relvent_observations, N,
+    #                                                                                    emissions_table,
+    #                                                                                    transitions_probs, start_probs)
+    #             pbar.update(1)
+    #
+    #     return [[optimal_states_seq[w] for w in optimal_W] for optimal_W, optimal_states_seq in
+    #             zip(optimal_Ws, optimal_states_seqs)]
+
     @staticmethod
-    def sequence_labeling_known_emissions(all_relvent_observations,transitions_probs, start_probs,
-                               emissions_table, Ng_iters=10,N = 2):
-        transitions_probs = {k: v for k, v in transitions_probs.items() if not k in ['start', 'end']}
-        N = EmSequenceLabeling.__rebuild_N(N,all_relvent_observations)
-        gibbs_sampler = GibbsSampler(N,number_of_states_in_time = None,
-                 transition_sampling_profile = 'all', multi_process = True)
+    def most_likely_path(observations, transitions_prob, start_probs,
+                         emissions_table, Ng_iters, N=2):
+        is_known_emissions = type(
+            emissions_table[list(emissions_table.keys())[0]]) is dict
+        guess_state_per_obs = [[EmSequenceLabeling._closest_state(emissions_table, obs,is_known_emissions) for obs in sentence] for
+                               sentence in observations]
+        pome_model = EmSequenceLabeling._build_pome_model_of_chain(transitions_prob, start_probs, emissions_table)[0]
 
-        emissions_table = gibbs_sampler.impute_emissions_table_with_zeros(emissions_table, all_relvent_observations,True)
-        curr_trans = transitions_probs
-
-        if type(N) is list:
-            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs, _N in
-                      zip(all_relvent_observations, N)]
-        else:
-            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
-                      all_relvent_observations]
-
-        optimal_states_seqs, _ = gibbs_sampler.sample_walk_from_params(all_relvent_observations, N,
-                                                        emissions_table, start_probs,
-                                                        curr_w, curr_trans)
-        with tqdm(total=Ng_iters) as pbar:
-            for i in range(Ng_iters):
-                optimal_Ws = EmSequenceLabeling.calculate_optimal_Ws(optimal_states_seqs,all_relvent_observations,
-                                                                   emissions_table)
-                optimal_states_seqs = EmSequenceLabeling.calculate_optimal_states_seqs(optimal_Ws, all_relvent_observations,N,
-                                                                     emissions_table,transitions_probs, start_probs)
-                pbar.update(1)
-
-        return  [[optimal_states_seq[w] for w in optimal_W] for optimal_W,optimal_states_seq in zip(optimal_Ws,optimal_states_seqs)]
-
-    @staticmethod
-    def most_likely_path(observations,transitions_prob,start_probs,
-                               emissions_table, Ng_iters,N = 2):
-        guess_state_per_obs = [[EmSequenceLabeling._closest_state(emissions_table,obs) for obs in sentence] for sentence in observations]
-        pome_model = EmSequenceLabeling._build_pome_model_of_chain(transitions_prob,start_probs,emissions_table)
+        if is_known_emissions :
+            emissions_table = EmSequenceLabeling.impute_emissions_table_with_zeros(emissions_table,observations)
 
         all_ml_paths = []
-        for sentence,guess in zip(observations,guess_state_per_obs) :
-            mlp = EmSequenceLabeling._ml_path(sentence,N,pome_model,
-                               emissions_table,guess, Ng_iters)
+        for sentence, guess,n in zip(observations, guess_state_per_obs,N):
+            mlp = EmSequenceLabeling._ml_path(sentence, n, pome_model,
+                                              emissions_table, guess, Ng_iters,is_known_emissions)
             all_ml_paths.append(mlp)
 
         return all_ml_paths
 
     @staticmethod
-    def _closest_state(emissions_table,obs) :
+    def impute_emissions_table_with_zeros( emissions_table,all_relvent_observations,impute_zeros = False) :
+        all_possible_emissions = set(chain(*all_relvent_observations))
+        new_emissions_table = emissions_table
+        for _emm in all_possible_emissions :
+            for k,v in emissions_table.items():
+                if _emm not in v.keys() :
+                    new_emissions_table[k][_emm] = 0 if not impute_zeros else 1e-6
+
+        if impute_zeros :
+            return {k:{kk:(vv if vv != 0 else 1e-9) for kk,vv in v.items()} for k,v in new_emissions_table.items()}
+
+        return new_emissions_table
+
+
+    @staticmethod
+    def _build_pome_model_of_chain(transition_matrix_sparse, start_probs, state_to_distrbution_param_mapping) :
+        is_known_emissions = type(
+            state_to_distrbution_param_mapping[list(state_to_distrbution_param_mapping.keys())[0]]) is dict
+
+        if is_known_emissions:
+            all_params_to_distrbutions = {st: DiscreteDistribution(dist) for st, dist in
+                                          state_to_distrbution_param_mapping.items()}
+            state_to_distrbution_param_mapping['start'] = {}
+        else:
+            # we need this because we need to share the dist instances for pomegranate
+            all_params_to_distrbutions = {(_params[0], _params[1]): NormalDistribution(_params[0], _params[1]) for
+                                          k, _params in
+                                          state_to_distrbution_param_mapping.items() if
+                                          ((k != 'start') and (k != 'end'))}
+            if 'start' not in state_to_distrbution_param_mapping.keys():
+                state_to_distrbution_param_mapping['start'] = (-1, -1)
+
+        all_model_pome_states = {}
+        model = HiddenMarkovModel()
+        for state_name, _params in state_to_distrbution_param_mapping.items():
+            if state_name == 'start':
+                model.add_state(model.start)
+                all_model_pome_states['start'] = model.start
+                continue
+            if state_name == 'end':
+                model.add_state(model.end)
+                all_model_pome_states['end'] = model.end
+                continue
+            if is_known_emissions:
+                state = State(all_params_to_distrbutions[state_name], name=f"{state_name}")
+            else:
+                state = State(all_params_to_distrbutions[_params], name=f"{state_name}")
+            model.add_state(state)
+            all_model_pome_states[state_name] = state
+
+        for _from_state_name, _to_states in transition_matrix_sparse.items():
+            if _from_state_name == "end" : continue
+            _from_state = all_model_pome_states[_from_state_name]
+            for _to_state_name, _trans_prob in _to_states.items():
+                _to_state = all_model_pome_states[_to_state_name]
+                model.add_transition(_from_state, _to_state, _trans_prob)
+        for _to_state,_trans_prob in start_probs.items() :
+            model.add_transition(model.start, all_model_pome_states[_to_state], _trans_prob)
+
+        model.bake()
+
+        return model, all_model_pome_states
+
+    @staticmethod
+    def _closest_state(emissions_table, obs,is_known_emissions):
         max_state = None
         max_prob = 0
-        for s in emissions_table.keys():
-            prob = emissions_table[s][obs]
+        for s,params in emissions_table.items():
+            if s in ["start","end"] : continue
+            if is_known_emissions :
+                prob = emissions_table[s][obs]
+            else :
+                prob = Utils.normpdf(obs,params[0],params[1])
 
-            if prob > max_prob :
+            if prob > max_prob:
                 max_prob = prob
                 max_state = s
         return max_state
 
-
     @staticmethod
-    def _ml_path(sentence,N,pome_model,emissions_table,guess, Ng_iters):
+    def _ml_path(sentence, N, pome_model, emissions_table, guess, Ng_iters,is_known_emissions):
         W = sorted(np.random.choice(range(max(N, len(sentence))), len(sentence), replace=False))
-        X = EmSequenceLabeling._return_initial_X(W,guess,N)
+        X = EmSequenceLabeling._return_initial_X(W, guess, N)
 
-        for iter in range(Ng_iters) :
-            W = EmSequenceLabeling._return_optimal_W(sentence,X,emissions_table)
-            X = EmSequenceLabeling._return_optimal_X(sentence,W,pome_model,N)
+        for iter in range(Ng_iters):
+            W = EmSequenceLabeling._return_optimal_W(X, sentence, emissions_table,is_known_emissions)
+            X = EmSequenceLabeling._return_optimal_X(sentence, W, pome_model, N)
 
-        return None
-
-    @staticmethod
-    def _return_optimal_W(sentence, X, emissions_table) :
-        def is_connected(s_from, s_to):
-            return int((s_to[0] - s_from[0]) == 1 and s_to[1] > s_from[1])
-
-        graph_states = [(k, n) for k, n in itertools.product(list(range(len(sentence))), list(range(len(X)))) if k <= n]
-        transitions = {state: {_state: 1 for _state in graph_states if is_connected(state, _state)} for state in graph_states}
-        transitions = {k: v for k, v in transitions.items() if len(v) > 0}
-
-        final_transitions = copy.copy(transitions)
-        final_transitions["start"] = {}
-        for f_state,tos in graph_states:
-            if f_state[0] == 0:
-                final_transitions["start"][f_state] = 1
-            for t_state,_ in tos.items():
-                if t_state[0] == len(sentence)-1 :
-                    final_transitions[t_state] = {"end":1}
-
-        G = nx.DiGraph()
-        q = list(transitions.items())
-        while q:
-            v, d = q.pop()
-            for nv, nd in d.items():
-               G.add_edge(v, nv, color='y', weight=2)
-               if isinstance(nd, Mapping):
-                   q.append((nv, nd))
-
-
-
+        return [X[w] for w in W]
 
     @staticmethod
-    def _return_optimal_X(sentence,W,pome_model,N):
+    def _return_optimal_X(sentence, W, pome_model, N):
         sentence_with_nulls = []
         j = 0
         for i in range(N):
@@ -123,14 +176,16 @@ class EmSequenceLabeling():
             else:
                 sentence_with_nulls.append(None)
 
-        return pome_model.predict(sentence_with_nulls)
+        state_pred_idx = pome_model.predict(sentence_with_nulls)
+        states_prd = [pome_model.states[si].name for si in state_pred_idx]
+        return states_prd
 
     @staticmethod
-    def _return_initial_X(W,guess,N) :
+    def _return_initial_X(W, guess, N):
         init_X = []
-        j=0
-        for i in range(N) :
-            if i in W :
+        j = 0
+        for i in range(N):
+            if i in W:
                 init_X.append(guess[j])
                 j += 1
             else:
@@ -138,54 +193,56 @@ class EmSequenceLabeling():
         return init_X
 
     @staticmethod
-    def __rebuild_N(N, all_relvent_observations) :
-        if type(N) is list :
+    def __rebuild_N(N, all_relvent_observations):
+        if type(N) is list:
             return N
-        else :
-            return [max(N,len(seq)) for seq in all_relvent_observations]
+        else:
+            return [max(N, len(seq)) for seq in all_relvent_observations]
 
     @staticmethod
     def build_pome_model_from_trnaisiotns(predicted_transitions, words_emms_probs, start_probs, all_states):
-        states_name_to_state_mapping = {state: (State(DiscreteDistribution(words_emms_probs[state]), state) if state not in ['start','end'] else state) for state in
+        states_name_to_state_mapping = {state: (
+            State(DiscreteDistribution(words_emms_probs[state]), state) if state not in ['start', 'end'] else state) for
+                                        state in
                                         all_states}
 
         _model = HiddenMarkovModel()
         for _from, _tos in predicted_transitions.items():
-            if _from in ["start","end"]: continue
+            if _from in ["start", "end"]: continue
 
             for _to, val in _tos.items():
-                if _to in ['end','start']: continue
+                if _to in ['end', 'start']: continue
                 _to_state = states_name_to_state_mapping[_to]
 
                 _from_state = states_name_to_state_mapping[_from]
                 _model.add_transition(_from_state, _to_state, val)
 
-        for state,start_prob in start_probs.items() :
+        for state, start_prob in start_probs.items():
             _to_state = states_name_to_state_mapping[state]
-            _model.add_transition(_model.start,_to_state,start_prob)
+            _model.add_transition(_model.start, _to_state, start_prob)
 
         _model.bake()
         return _model
 
     @staticmethod
-    def calculate_optimal_states_seqs(optimal_Ws, all_relvent_observations,N,
-                                  emissions_table, transitions_probs, start_probs) :
+    def calculate_optimal_states_seqs(optimal_Ws, all_relvent_observations, N,
+                                      emissions_table, transitions_probs, start_probs):
         all_states = list(transitions_probs.keys())
         pome_model_for_prediction = EmSequenceLabeling.build_pome_model_from_trnaisiotns(transitions_probs,
                                                                                          emissions_table,
                                                                                          start_probs,
                                                                                          all_states)
-        states_name_list = [state.name for state in pome_model_for_prediction.states ]
+        states_name_list = [state.name for state in pome_model_for_prediction.states]
 
         optimal_states_seqs = []
-        for i,(optimal_w,relvent_observations) in enumerate(zip(optimal_Ws,all_relvent_observations) ):
+        for i, (optimal_w, relvent_observations) in enumerate(zip(optimal_Ws, all_relvent_observations)):
             sentence_with_null_as_gaps = []
             k = 0
             for i in range(N[i]):
-                if i in optimal_w :
+                if i in optimal_w:
                     obs = relvent_observations[k]
                     k += 1
-                else :
+                else:
                     obs = None
 
                 sentence_with_null_as_gaps.append(obs)
@@ -198,28 +255,30 @@ class EmSequenceLabeling():
         return optimal_states_seqs
 
     @staticmethod
-    def calculate_optimal_states_seq(optimal_w,relvent_observations,N,emissions_table, transitions_probs,start_probs):
+    def calculate_optimal_states_seq(optimal_w, relvent_observations, N, emissions_table, transitions_probs,
+                                     start_probs):
         w_adj_emissions_table = GibbsSampler._build_emmisions_for_sample(relvent_observations, optimal_w,
                                                                          emissions_table, N, True)
-        states = list(filter(lambda x:x not in ['start','end'],start_probs.keys()))
-        optimal_seq = EmSequenceLabeling.viterbi_flat_emiss_matrix(relvent_observations, states, start_probs, transitions_probs,
-                                                 w_adj_emissions_table)
+        states = list(filter(lambda x: x not in ['start', 'end'], start_probs.keys()))
+        optimal_seq = EmSequenceLabeling.viterbi_flat_emiss_matrix(relvent_observations, states, start_probs,
+                                                                   transitions_probs,
+                                                                   w_adj_emissions_table)
 
         return optimal_seq
 
     @staticmethod
-    def _build_local_emissions_probs(obs,states,emit_p):
-        local_emm_probs = {st:emit_p[st][obs] for st in states}
-        if sum(local_emm_probs.values()) == 0 :
-            local_emm_probs = {st:1/len(states) for st in states}
-        local_emm_probs = {k: v/sum(local_emm_probs.values()) for k, v in local_emm_probs.items()}
-        return {k:(v if v != 0 else 1e-5) for k,v in local_emm_probs.items()}
+    def _build_local_emissions_probs(obs, states, emit_p):
+        local_emm_probs = {st: emit_p[st][obs] for st in states}
+        if sum(local_emm_probs.values()) == 0:
+            local_emm_probs = {st: 1 / len(states) for st in states}
+        local_emm_probs = {k: v / sum(local_emm_probs.values()) for k, v in local_emm_probs.items()}
+        return {k: (v if v != 0 else 1e-5) for k, v in local_emm_probs.items()}
 
     @staticmethod
     def viterbi(obs, states, start_p, trans_p, emit_p):
         V = [{}]
         for st in states:
-            local_emm_probs = EmSequenceLabeling._build_local_emissions_probs(obs[0],states,emit_p)
+            local_emm_probs = EmSequenceLabeling._build_local_emissions_probs(obs[0], states, emit_p)
             V[0][st] = {"prob": start_p[st] * local_emm_probs[st], "prev": None}
         # Run Viterbi when t > 0
         for t in range(1, len(obs)):
@@ -251,7 +310,7 @@ class EmSequenceLabeling():
 
         # Follow the backtrack till the first observation
         for t in range(len(V) - 2, -1, -1):
-            if previous is None :
+            if previous is None:
                 print("---" + str(previous))
             opt.insert(0, V[t + 1][previous]["prev"])
             previous = V[t + 1][previous]["prev"]
@@ -262,7 +321,7 @@ class EmSequenceLabeling():
     def viterbi_flat_emiss_matrix(obs, states, start_p, trans_p, emit_p):
         V = [{}]
         for st in states:
-            V[0][st] = {"prob": start_p[st] * emit_p[(st,0)], "prev": None}
+            V[0][st] = {"prob": start_p[st] * emit_p[(st, 0)], "prev": None}
         # Run Viterbi when t > 0
         for t in range(1, len(obs)):
             V.append({})
@@ -275,7 +334,7 @@ class EmSequenceLabeling():
                         max_tr_prob = tr_prob
                         prev_st_selected = prev_st
 
-                max_prob = max_tr_prob * emit_p[(st,t)]
+                max_prob = max_tr_prob * emit_p[(st, t)]
                 V[t][st] = {"prob": max_prob, "prev": prev_st_selected}
 
         opt = []
@@ -298,36 +357,75 @@ class EmSequenceLabeling():
         return opt
 
     @staticmethod
-    def calculate_optimal_Ws(optimal_states_seqs, all_relvent_observations,
-                        emissions_table) :
-        optimal_Ws = []
-        for optimal_states_seq,relvent_observations in zip(optimal_states_seqs,all_relvent_observations) :
-            if len(optimal_states_seq) == len(relvent_observations) :
-                _optimal_W = list(range(len(optimal_states_seq)))
+    def _return_optimal_W(optimal_states_seq, relvent_observations,
+                          emissions_table,is_known_emissions):
+        if len(optimal_states_seq) == len(relvent_observations):
+            _optimal_W = list(range(len(optimal_states_seq)))
+        else:
+            _optimal_W = EmSequenceLabeling.calculate_optimal_W(optimal_states_seq, relvent_observations,
+                                                                emissions_table,is_known_emissions)
+        return _optimal_W
+
+    @staticmethod
+    def calculate_optimal_W(states_seq, relvent_observations, emissions_table,is_known_emissions):
+        def _is_connected(s_from, s_to, K=1):
+            if s_to == "start": return False
+            if s_from == "end": return False
+
+            if s_from == "start":
+                return s_to[0] == 0
+            if s_to == "end":
+                return s_from[0] == K
+
+            return int((s_to[0] - s_from[0]) == 1 and s_to[1] > s_from[1])
+
+        def _return_eq_state_weigth(eq_state, emissions_table):
+            if eq_state == "end": return 0
+            if is_known_emissions :
+                orig_emm = emissions_table[states_seq[eq_state[1]]][relvent_observations[eq_state[0]]]
             else :
-                _optimal_W = EmSequenceLabeling.calculate_optimal_W(optimal_states_seq, relvent_observations,
-                                                                emissions_table)
-            optimal_Ws.append(_optimal_W)
-        return optimal_Ws
+                obs = relvent_observations[eq_state[0]]
+                mean = emissions_table[states_seq[eq_state[1]]][0]
+                std = emissions_table[states_seq[eq_state[1]]][1]
+                orig_emm = Utils.normpdf(obs,mean,std)
+            log_emm = np.log(orig_emm)
+            neg_log_emm = -log_emm
+            return neg_log_emm
+
+        K = len(relvent_observations)
+        N = len(states_seq)
+
+        states = [(k, n) for k, n in itertools.product(list(range(K)), list(range(N))) if k <= n]
+        states += ["start", "end"]
+        transitions = {state: {_state: _return_eq_state_weigth(_state, emissions_table) for _state in states if
+                               _is_connected(state, _state, K - 1)} for state in states}
+        graph_data = {k: v for k, v in transitions.items() if len(v) > 0}
+
+        G = nx.DiGraph()
+        weigth_dict = {}
+        q = list(graph_data.items())
+        while q:
+            v, d = q.pop()
+            for nv, nd in d.items():
+                G.add_edge(v, nv, color='b', weight=1)
+                weigth_dict[(v, nv)] = nd
+
+        nx.set_edge_attributes(G, weigth_dict, "weight")
+
+        try:
+            shortest = nx.algorithms.shortest_path(G, "start", "end", weight="weight")[1:-1]
+        except:
+            shortest = nx.algorithms.johnson(G, weight="weight")["start"][ "end"][1:-1]
+        optimal_w = list(map(lambda x: x[1], shortest))
+
+        return optimal_w
 
     @staticmethod
-    def calculate_optimal_W(states_seq, relvent_observations, emissions_table) :
-        emm_probs_for_ind,states_ind,observations_ind= EmSequenceLabeling.calculate_emmissions_probs_per_index(states_seq, relvent_observations,
-                                                                                    emissions_table)
-        transitions_probs = EmSequenceLabeling._build_transitions_probs(states_ind)
-        start_p = {i:1/len(states_ind) for i in states_ind}
-
-        optimal_path = EmSequenceLabeling.viterbi(observations_ind, states_ind, start_p,
-                                                  transitions_probs, emm_probs_for_ind)
-
-        return optimal_path
-
-    @staticmethod
-    def _build_transitions_probs(states_ind) :
+    def _build_transitions_probs(states_ind):
         trans_probs = {}
-        for state_f in states_ind :
+        for state_f in states_ind:
             states_t_dist = {}
-            _sum=0
+            _sum = 0
             for state_t in states_ind:
                 _val = 1 if state_t > state_f else 0
                 states_t_dist[state_t] = _val
@@ -338,7 +436,7 @@ class EmSequenceLabeling():
 
     @staticmethod
     def calculate_emmissions_probs_per_index(states_seq, relvent_observations,
-                                                            emissions_table):
+                                             emissions_table):
         states_ind = range(len(states_seq))
         observations_ind = range(len(relvent_observations))
 
@@ -359,7 +457,7 @@ class EmSequenceLabeling():
 
             emm_probs[state_ind] = {k: v / _sum for k, v in states_dist.items()}
 
-        return emm_probs,states_ind,observations_ind
+        return emm_probs, states_ind, observations_ind
 
     @staticmethod
     def no_transitions_viterbi(obs, states, emit_p):
