@@ -205,7 +205,8 @@ class GibbsExperiment() :
         mutual_params_summ = '.'.join([f"{str(k).split('is_')[-1][:4]}{str(v)[:3]}" for k, v in params_dict.items() if
                                        not (("acycl" in k) or ("sigma" in k) or ("mues" in k) or ("inner" in k) or (
                                                    "is_mh" in k) or ("multi" in k) or ("w_smapler" in k) or (
-                                                        "exp_n" in k))])
+                                                        "exp_n" in k)or (
+                                                        "non_cons" in k))])
         cache_path = os.path.join(r"../../cache", dir_cache_path, f"{mutual_params_summ}_{date_time}.pkl")
         params_path = os.path.join(r"../../cache", dir_cache_path, f"{mutual_params_summ}_{date_time}_params.txt")
 
