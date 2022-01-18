@@ -157,7 +157,7 @@ class GibbsExperiment() :
     @staticmethod
     def save_to_cache(result,combined_params) :
         dir_cache_path = combined_params["exp_name"] if "exp_name" in combined_params.keys() else "Global"
-        cache_path,params_path = GibbsExperiment._build_exp_cache_name(result['mutual_params'],dir_cache_path,True)
+        cache_path,params_path = GibbsExperiment._build_exp_cache_name(combined_params,dir_cache_path,True)
 
         if not os.path.exists(os.path.dirname(cache_path)):
             os.makedirs(os.path.dirname(cache_path))
@@ -173,7 +173,7 @@ class GibbsExperiment() :
     @staticmethod
     def extrect_exp_cache_name(combined_params,mutual_model_params_dict):
         dir_cache_path = combined_params["exp_name"] if "exp_name" in combined_params.keys() else "Global"
-        cache_path, params_path = GibbsExperiment._build_exp_cache_name(mutual_model_params_dict, dir_cache_path, False)
+        cache_path, params_path = GibbsExperiment._build_exp_cache_name(combined_params, dir_cache_path, False)
 
         files_in_folder = GibbsExperiment.load_all_experiments_from_folder(os.path.join(r"../../cache/", dir_cache_path),
                                                                            only_path=True)
@@ -204,7 +204,10 @@ class GibbsExperiment() :
             date_time = str(datetime.datetime.now())[:16].replace('-', '').replace(':', '')
         else :
             date_time =''
-        mutual_params_summ = '.'.join([f"{str(k)[:3]}{str(v)[:3]}" for k, v in params_dict.items()])
+        mutual_params_summ = '.'.join([f"{str(k).split('is_')[-1][:4]}{str(v)[:3]}" for k, v in params_dict.items() if
+                                       not (("acycl" in k) or ("sigma" in k) or ("mues" in k) or ("inner" in k) or (
+                                                   "is_mh" in k) or ("multi" in k) or ("w_smapler" in k) or (
+                                                        "exp_n" in k))])
         cache_path = os.path.join(r"../../cache", dir_cache_path, f"{mutual_params_summ}_{date_time}.pkl")
         params_path = os.path.join(r"../../cache", dir_cache_path, f"{mutual_params_summ}_{date_time}_params.txt")
 
@@ -214,6 +217,7 @@ class GibbsExperiment() :
     def load_all_experiments_from_folder(folder_path,only_path=False):
         all_exp = {}
         i=0
+        if not os.path.isdir(folder_path) : return {}
         for file in os.listdir(folder_path ):
             if only_path :
                 all_exp[i] = file
