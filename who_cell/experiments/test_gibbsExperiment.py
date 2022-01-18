@@ -65,9 +65,39 @@ class TestGibbsExperiment(TestCase):
             "is_numerical_reconstruction_method": [True, False],
             "exp_name" :["test"]
         }
-        all_models_results_known_sets = GibbsExperiment.run_multi_params_and_return_results(params_dict,
-                                                                                            model_defining_params_pre,
-                                                                                            skip_sampler=False)
+        # all_models_results_known_sets = GibbsExperiment.run_multi_params_and_return_results(params_dict,
+        #                                                                                     model_defining_params_pre,
+        #                                                                                     skip_sampler=True)
+
+        N = 30
+        n_traj = 150
+        pcs = [ 0.5, 0.65, 0.8, 1]
+        n_iters = 200
+        model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
+        params_dict = {
+            'is_acyclic': [True],
+            'known_mues': [True],
+            "is_few_observation_model": [True, False],
+            "is_only_seen": ["all", "d1"],
+            'N': [50],
+            'd': [5, 3],
+            "bipartite": [False],
+            "inner_outer_trans_probs_ratio": [50],
+            'n_states': [10],
+            'sigma': [0.1],
+            'number_of_smapled_traj': [n_traj],
+            'p_prob_of_observation': pcs,
+            'N_itres': [1],
+            'is_mh': [False],
+            'w_smapler_n_iter': [120],
+            'is_known_W': [False, True],
+            "is_multi_process": [False],
+            "PC_guess": ["known"],
+            "exp_name": ["firth figure"]
+        }
+        all_models_results_syntetic = GibbsExperiment.run_multi_params_and_return_results(params_dict,
+                                                                                          model_defining_params_pre,
+                                                                                          skip_sampler=True)
 
     def test_run_multi_params_and_return_results(self):
         mutual_model_params_dict = {
