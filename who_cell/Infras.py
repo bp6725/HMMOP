@@ -22,7 +22,7 @@ class Infras() :
         if func_name == "simulate_observations" :
             return ['simulate_observations',args[2],f"p_{args[1]['p_prob_of_observation']}"]
         if ('build' in func_name) and ('model_parameters' in func_name) :
-            N, d, mues, sigmas = args
+            N, d, mues, sigmas,perc_impossible_trans = args
             is_acyclic = "acyclic" if ('acyclic' in func_name) else 'not acyclic'
             return ['build_model_parameters',f'{N}', str(d), str(mues), str(sigmas),is_acyclic]
 

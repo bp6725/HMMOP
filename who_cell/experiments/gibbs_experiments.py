@@ -117,13 +117,11 @@ class GibbsExperiment() :
             if not GibbsExperiment._is_valid_experiment(combined_params): continue
             print(combined_params)
 
-
             exp_cache = GibbsExperiment.extrect_exp_cache_name(combined_params, mutual_model_params_dict)
             if skip_sampler and exp_cache :
                 _result = GibbsExperiment._load_from_cache(combined_params,exp_cache)
                 all_results_of_model[exp_idx] = _result
                 continue
-
 
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
             all_relvent_sampled_trajs_states,known_ws),_ = \
@@ -360,7 +358,7 @@ class GibbsExperiment() :
                                                               in pome_results['start_probabilites'].keys()},
                                    mues_for_sampler, sigmas_for_sampler, params['N_itres'],
                                    w_smapler_n_iter=w_smapler_n_iter,
-                                   is_mh=params["is_mh"])
+                                   is_mh=params["is_mh"],impossible_transitions = pome_results['impossible_trans'])
             else :
                 all_sampled_transitions, all_ws, all_transitions, all_states, all_alphas = \
                     sampler.sample_known_emissions(all_relvent_observations, pome_results['start_probabilites'],

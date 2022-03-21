@@ -19,6 +19,7 @@ from multiprocessing import Pool
 from who_cell.models.utils import Utils
 from  itertools import chain
 from collections import Counter
+import itertools
 
 from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
 
@@ -34,9 +35,7 @@ class GibbsSampler() :
     # region Public
 
     def sample(self, all_relvent_observations, start_probs,
-               known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
-        # (all_relvent_observations,known_states) = all_relvent_observations
-
+               known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False, impossible_transitions = None):
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues, sigmas,
@@ -44,7 +43,7 @@ class GibbsSampler() :
 
         priors = self._calc_distributions_prior(all_relvent_observations, (len(states) - 2)) if not known_mues else None
         curr_mus = self.build_initial_mus(sigmas, priors, known_mues)
-        curr_trans = self.build_initial_transitions(states)
+        curr_trans = self.build_initial_transitions(states, impossible_transitions)
 
         if type(N) is list:
             curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs, _N in
@@ -76,7 +75,7 @@ class GibbsSampler() :
                 state_to_distrbution_param_mapping = self._update_distributions_params(
                     state_to_distrbution_param_mapping, curr_mus)
 
-                curr_trans, _ = self.sample_trans_from_params(sampled_transitions, states,
+                curr_trans, _ = self.sample_trans_from_params(sampled_transitions, states,impossible_transitions,
                                                               curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                            state_to_distrbution_param_mapping],
                                                               stage_name="transitions" if is_mh else "no_mh",
@@ -1410,7 +1409,10 @@ class GibbsSampler() :
         return new_mues
 
     @Utils.update_based_on_alpha
-    def sample_trans_from_params(self,all_transitions,states):
+    def sample_trans_from_params(self,all_transitions,states,impossible_transitions):
+        impossible_transitions['start'] = []
+        impossible_transitions['end'] = []
+
         sampled_transitions = {state: {s:0 for s in states} for state in states}
 
         if self.transition_sampling_profile == 'all' :
@@ -1426,8 +1428,9 @@ class GibbsSampler() :
             _transition_dict = all_transitions.items()
 
         for state,poss_trans in _transition_dict:
-            poss_trans_states = [state for state in poss_trans.keys()]
-            poss_trans_counts = [(state if state > 0 else 1)  for state in poss_trans.values()]
+            if any([a==b for a,b in itertools.product(poss_trans,impossible_transitions[state])]) : raise
+            poss_trans_states = [_state for _state in poss_trans.keys() if _state not in impossible_transitions[state]]
+            poss_trans_counts = [(_state if _state > 0 else 1)  for _state in poss_trans.values() if _state not in impossible_transitions[state]]
 
             sample = np.random.dirichlet(poss_trans_counts)
 
@@ -1540,7 +1543,8 @@ class GibbsSampler() :
 
         return walks
 
-    def build_initial_transitions(self,states):
+    def build_initial_transitions(self,states, impossible_transitions):
+        impossible_transitions['start'] = []
         initial_transitions = {state: {} for state in states}
 
         normalization_factors = {}
@@ -1551,9 +1555,10 @@ class GibbsSampler() :
             for _s2 in initial_transitions.keys():
                 if _s2 == 'start' : continue
 
-                _val = 0
-
-                _val = np.random.rand()
+                if _s2 in impossible_transitions[_s1] :
+                    _val = 0
+                else :
+                    _val = np.random.rand()
 
                 initial_transitions[_s1][_s2] = _val
                 _sum += _val

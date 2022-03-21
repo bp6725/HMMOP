@@ -3,6 +3,8 @@ import numpy as np
 import itertools
 from who_cell.Infras import Infras
 from who_cell.simulation.known_transition_matrices import KnownTransition_matrices
+from collections import Counter
+import copy
 
 class Simulator_for_Gibbs():
     def __init__(self,N,d,n_states,easy_mode=False,max_number_of_sampled_traj = None,sigma = 0.1 ):
@@ -278,16 +280,22 @@ class Simulator_for_Gibbs():
 
         return transition_matrix_sparse
 
-    def _generete_acyclic_transition_matrix(self,states,d) :
+    def _generete_acyclic_transition_matrix(self,states,d,impossible_trans_dict) :
         possible_states = [state for state in states if state  not in ['start','end']]
         transition_matrix_sparse = {}
+
+        if impossible_trans_dict is None :
+            impossible_trans = {s:[] for s in possible_states}
+        else :
+            impossible_trans = copy.copy(impossible_trans_dict)
+            impossible_trans['start'] = []
 
         for state in states :
             if state == 'end' : continue
             transition_matrix_sparse[state] = {}
 
-            n_of_out_trans =d# np.random.randint(d-1, d +1)
-            _possible_states = [s for s in possible_states]
+            n_of_out_trans = d
+            _possible_states = [s for s in possible_states if s not in impossible_trans[state]]
             out_trans = np.random.choice(_possible_states, size=n_of_out_trans, replace=False)
 
             for out_t in out_trans:
@@ -333,16 +341,17 @@ class Simulator_for_Gibbs():
         return state_to_distrbution_param_mapping,transition_matrix_sparse,start_probabilites
 
     @Infras.storage_cache
-    def build_acyclic_template_model_parameters(self,N,d,mues,sigmas):
+    def build_acyclic_template_model_parameters(self,N,d,mues,sigmas,perc_impossible_trans):
         state_to_distrbution_param_mapping = self._build_unique_states_to_params(N,d,mues,sigmas)
 
         states = state_to_distrbution_param_mapping.keys()
-        transition_matrix_sparse = self._generete_acyclic_transition_matrix(states,d)
+        impossible_trans = self._generete_impossible_transitions(states,perc_impossible_trans,len(mues),d)
+        transition_matrix_sparse = self._generete_acyclic_transition_matrix(states,d,impossible_trans)
 
         states = [state for state in states if state not in ['end','start'] ]
         start_probabilites = {state:1/len(states) for state in states}
 
-        return state_to_distrbution_param_mapping,transition_matrix_sparse,start_probabilites
+        return state_to_distrbution_param_mapping,transition_matrix_sparse,start_probabilites,impossible_trans
 
     def __rename_cyclic_neighbors_map(self,cyclic_neighbors_map,unique_name_to_name_mapping):
         return {unique_name_to_name_mapping[k]:
@@ -450,7 +459,7 @@ class Simulator_for_Gibbs():
         :return:
         '''
 
-        (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites), params_signature = \
+        (state_to_distrbution_param_mapping, transition_matrix_sparse, start_probabilites,impossible_trans), params_signature = \
             self.return_model_parameters(N, d, mues,sigmas,inner_outer_trans_probs_ratio,
                                                                 is_bipartite,mutual_model_params_dict)
 
@@ -466,20 +475,25 @@ class Simulator_for_Gibbs():
             "transition_matrix_sparse":transition_matrix_sparse,
             "state_to_distrbution_param_mapping":state_to_distrbution_param_mapping,
             "start_probabilites":start_probabilites ,
-            "params_signature":params_signature
+            "params_signature":params_signature,
+            "impossible_trans":impossible_trans
         }
 
         return pome_results
 
     def return_model_parameters(self,N, d, mues,sigmas,inner_outer_trans_probs_ratio,
                                                                 is_bipartite,mutual_model_params_dict):
-        is_known_dataset = mutual_model_params_dict["known_dataset"] != -1 if "known_dataset" in mutual_model_params_dict.keys() else False
+        is_known_dataset = mutual_model_params_dict[
+                               "known_dataset"] != -1 if "known_dataset" in mutual_model_params_dict.keys() else False
+
+        perc_impossible_trans = mutual_model_params_dict[
+            "perc_impossible_trans"] if "perc_impossible_trans" in mutual_model_params_dict.keys() else None
 
         if is_known_dataset :
             return self.build_known_model(mutual_model_params_dict["known_dataset"])
 
         if not is_bipartite:
-            return self.build_acyclic_template_model_parameters(N, d, mues, sigmas)
+            return self.build_acyclic_template_model_parameters(N, d, mues, sigmas,perc_impossible_trans)
 
         if is_bipartite:
             return self.build_bipartite_template_model_parameters(N, d, mues,sigmas,
@@ -490,7 +504,7 @@ class Simulator_for_Gibbs():
     @Infras.storage_cache
     def build_known_model(self,known_dataset):
         emmisions,transition_dict,start_probs = KnownTransition_matrices.load_data_set_by_name(known_dataset)
-        return emmisions,transition_dict,start_probs
+        return emmisions,transition_dict,start_probs,None
 
     def update_known_mues_and_sigmes_to_state_mapping(self,state_to_distrbution_param_mapping) :
         if type(state_to_distrbution_param_mapping[list(state_to_distrbution_param_mapping.keys())[0]]) is dict : return None
@@ -514,14 +528,17 @@ class Simulator_for_Gibbs():
         sparse_transition_matrix = {state: {} for state in all_distrbutions_params_mapping.keys()}
         sparse_transition_matrix['start'] = {}
 
+        list_of_impossible_trans = []
         for s1, s2 in itertools.product(all_distrbutions_params_mapping, all_distrbutions_params_mapping):
             if state_to_group[s1] == state_to_group[s2]:
+                list_of_impossible_trans.append((s1,s2))
                 _trans_prob = np.random.rand() / inner_outer_trans_probs_ratio
             elif (state_to_group[s2] - state_to_group[s1]) == 1:
                 _trans_prob = inner_outer_trans_probs_ratio * np.random.rand()
             elif (state_to_group[s1] == (len(groups) - 1)) and (state_to_group[s2] == 0):
                 _trans_prob = inner_outer_trans_probs_ratio * np.random.rand()
             elif (state_to_group[s2] - state_to_group[s1]) != 1:
+                list_of_impossible_trans.append((s1, s2))
                 _trans_prob = np.random.rand()
 
             sparse_transition_matrix[s1][s2] = _trans_prob
@@ -533,7 +550,9 @@ class Simulator_for_Gibbs():
 
         sparse_transition_matrix = self._normalize_transition_matrix(sparse_transition_matrix)
 
-        return  all_distrbutions_params_mapping , sparse_transition_matrix, sparse_transition_matrix['start']
+        imposs_trans_dic = {s: [t_s for f_s, t_s in list_of_impossible_trans if f_s == s] for s in all_distrbutions_params_mapping}
+
+        return  all_distrbutions_params_mapping , sparse_transition_matrix, sparse_transition_matrix['start'],imposs_trans_dic
 
     @Infras.storage_cache
     def build_dag_template_model_parameters(self, N, d, mues, sigmas,inner_outer_trans_probs_ratio):
@@ -570,5 +589,40 @@ class Simulator_for_Gibbs():
 
         sparse_transition_matrix = self._normalize_transition_matrix(sparse_transitions_matrix)
 
-        return all_distrbutions_params_mapping, sparse_transition_matrix, sparse_transition_matrix['start']
+        return all_distrbutions_params_mapping, sparse_transition_matrix, sparse_transition_matrix['start'] , None
+
+    def _generete_impossible_transitions(self,states,perc_impossible_trans,N_states,d):
+        if perc_impossible_trans is None :
+            return None
+        if perc_impossible_trans > d/N_states :
+            raise("perc_impossible_trans > d/N_states")
+
+        # we need to pick enough non possible trans but keep enough so the next step could pick d transitions.
+        all_possible_states = [state for state in states if (state not in ["start", "end"])]
+        all_possible_trans = [(_f_s,_t_s) for _f_s,_t_s in itertools.product(all_possible_states,all_possible_states)]
+
+        required_n_trans = int(perc_impossible_trans*len(all_possible_trans))
+
+        # we track the number of impossible transitions from f_s, it cant be more then N_states-d.
+        f_track = {s: 0 for s in all_possible_states}
+        list_of_imp_trans = []
+        while len(list_of_imp_trans) < required_n_trans :
+            for f_s,t_s in all_possible_trans :
+                if f_track[f_s] == N_states - d :
+                    continue
+
+                if len(list_of_imp_trans) == required_n_trans :
+                    break
+
+                if (f_s,t_s) in list_of_imp_trans :
+                    continue
+
+                if np.random.rand() < perc_impossible_trans :
+                    list_of_imp_trans.append((f_s,t_s))
+                    f_track[f_s] += 1
+
+        imposs_trans_dic = {s:[t_s for f_s,t_s in list_of_imp_trans if f_s == s] for s in all_possible_states}
+
+        return imposs_trans_dic
+
 

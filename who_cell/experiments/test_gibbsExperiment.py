@@ -100,17 +100,17 @@ class TestGibbsExperiment(TestCase):
         #                                                                                     skip_sampler=True)
 
         N = 30
-        n_traj = 150
+        n_traj = 300
         pcs = [ 0.5, 0.65, 0.8, 1]
         n_iters = 200
         model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
         params_dict = {
             'is_acyclic': [True],
             'known_mues': [True],
-            "is_few_observation_model": [True, False],
+            "is_few_observation_model": [True,False],
             "is_only_seen": ["all", "d1"],
-            'N': [50],
-            'd': [5, 3],
+            'N': [25],
+            'd': [5],
             "bipartite": [False],
             "inner_outer_trans_probs_ratio": [50],
             'n_states': [10],
@@ -120,9 +120,9 @@ class TestGibbsExperiment(TestCase):
             'N_itres': [1],
             'is_mh': [False],
             'w_smapler_n_iter': [120],
-            'is_known_W': [False, True],
+            'is_known_W': [False],
             "is_multi_process": [False],
-            "PC_guess": ["known"],
+            "perc_impossible_trans" : [0.3] ,
             "exp_name": ["firth figure"]
         }
         all_models_results_syntetic = GibbsExperiment.run_multi_params_and_return_results(params_dict,
