@@ -582,7 +582,7 @@ class GibbsSampler() :
                 all_states.append(X_walk)
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
-                all_ws.append(const_w)
+                all_ws.append(d_lists)
                 pbar.update(1)
         return all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions
 

@@ -3,6 +3,7 @@ from who_cell.experiments.gibbs_experiments import GibbsExperiment
 from who_cell.models.gibbs_sampler import GibbsSampler
 import sys
 from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
+from who_cell.experiments.experiment_report import ExperimentReport
 
 if not sys.warnoptions:
     import warnings

@@ -120,16 +120,19 @@ class GibbsExperiment() :
 
             exp_cache = GibbsExperiment.extrect_exp_cache_name(combined_params, mutual_model_params_dict)
             if skip_sampler and exp_cache :
+                print("load from cache")
                 _result = GibbsExperiment._load_from_cache(combined_params,exp_cache)
+                print("finish load from cache")
                 all_results_of_model[exp_idx] = _result
+
                 continue
 
-
+            print("start simulate")
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
             all_relvent_sampled_trajs_states,known_ws),_ = \
                 simulator.simulate_observations(pome_results["model"],combined_params,
                                                 pome_results['params_signature'],from_pre_sampled_traj = True)
-
+            print("start solve")
             result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
                                                                        pome_results, all_relvent_observations,
                                                                        mues_for_sampler, sigmas_for_sampler,
@@ -220,7 +223,7 @@ class GibbsExperiment() :
     @staticmethod
     def _load_from_cache(combined_params,exp_cache) :
         dir_cache_path = combined_params["exp_name"] if "exp_name" in combined_params.keys() else "Global"
-
+        print(exp_cache)
         with open(os.path.join(r"../../cache/", dir_cache_path,exp_cache),'rb') as f :
             res =pickle.load(f)
 
