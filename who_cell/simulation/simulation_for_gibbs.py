@@ -286,6 +286,7 @@ class Simulator_for_Gibbs():
 
         if impossible_trans_dict is None :
             impossible_trans = {s:[] for s in possible_states}
+            impossible_trans['start'] = []
         else :
             impossible_trans = copy.copy(impossible_trans_dict)
             impossible_trans['start'] = []
@@ -592,15 +593,18 @@ class Simulator_for_Gibbs():
         return all_distrbutions_params_mapping, sparse_transition_matrix, sparse_transition_matrix['start'] , None
 
     def _generete_impossible_transitions(self,states,perc_impossible_trans,N_states,d):
-        if perc_impossible_trans is None :
-            return None
-        if perc_impossible_trans > d/N_states :
-            raise("perc_impossible_trans > d/N_states")
+
+        if not perc_impossible_trans is None :
+            if perc_impossible_trans > d/N_states :
+                raise("perc_impossible_trans > d/N_states")
 
         # we need to pick enough non possible trans but keep enough so the next step could pick d transitions.
         all_possible_states = [state for state in states if (state not in ["start", "end"])]
-        all_possible_trans = [(_f_s,_t_s) for _f_s,_t_s in itertools.product(all_possible_states,all_possible_states)]
 
+        if perc_impossible_trans is None :
+            return {s:[] for s in all_possible_states}
+
+        all_possible_trans = [(_f_s,_t_s) for _f_s,_t_s in itertools.product(all_possible_states,all_possible_states)]
         required_n_trans = int(perc_impossible_trans*len(all_possible_trans))
 
         # we track the number of impossible transitions from f_s, it cant be more then N_states-d.
