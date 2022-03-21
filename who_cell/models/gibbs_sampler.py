@@ -1428,9 +1428,10 @@ class GibbsSampler() :
             _transition_dict = all_transitions.items()
 
         for state,poss_trans in _transition_dict:
-            if any([a==b for a,b in itertools.product(poss_trans,impossible_transitions[state])]) : raise
+            # if any([a==b for a,b in itertools.product(poss_trans,impossible_transitions[state])]) :
+            #     print("yay")
             poss_trans_states = [_state for _state in poss_trans.keys() if _state not in impossible_transitions[state]]
-            poss_trans_counts = [(_state if _state > 0 else 1)  for _state in poss_trans.values() if _state not in impossible_transitions[state]]
+            poss_trans_counts = [(count if count > 0 else 1)  for _state,count in poss_trans.items() if _state not in impossible_transitions[state]]
 
             sample = np.random.dirichlet(poss_trans_counts)
 
