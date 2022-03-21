@@ -212,7 +212,7 @@ class GibbsSampler() :
         emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
-        GibbsSampler
+
         curr_trans = self.build_initial_transitions(states)
 
         if type(N) is list :
@@ -831,7 +831,7 @@ class GibbsSampler() :
 
         probs_per_N = reduce(lambda x,y:x+y,probs_per_pos_state)
         if (sum(probs_per_N) == 0):
-            raise
+            return np.random.choice(list(n_steps_transitions.keys())) -1
         return np.random.choice(list(n_steps_transitions.keys()), p=probs_per_N/probs_per_N.sum()) -1
 
     def calculate_probs_single_orig(self,_pos_orig_state,first_obs,n_steps_transitions,N_factor):

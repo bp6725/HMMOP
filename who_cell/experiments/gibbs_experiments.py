@@ -22,8 +22,6 @@ from toolz import unique
 import glob
 from who_cell.models.numerical_correction import NumericalCorrection
 
-from numba import jit
-import numba
 
 from tqdm import tqdm
 from who_cell.models.numerical_correction import NumericalCorrection
@@ -33,6 +31,7 @@ from who_cell.experiments.experiment_report import ExperimentReport
 import pickle
 import datetime
 import json
+from collections import Iterable
 
 class GibbsExperiment() :
     def __init__(self,N,d,n_states,number_of_smapled_traj,p_prob_of_observation,N_itres):
@@ -113,6 +112,11 @@ class GibbsExperiment() :
         for exp_idx,hyper_param_set in enumerate(hyper_params_sets) :
             _hyper_param_set, combined_params, mues_for_sampler, sigmas_for_sampler = GibbsExperiment._return_hyper_params_set(hyper_param_set,
                                                                                                            mutual_model_params_dict,simulator )
+            combined_params["N_itres"] = GibbsExperiment._rechoose_n_iters(combined_params)
+
+            if not GibbsExperiment._is_valid_experiment(combined_params): continue
+            print(combined_params)
+
 
             exp_cache = GibbsExperiment.extrect_exp_cache_name(combined_params, mutual_model_params_dict)
             if skip_sampler and exp_cache :
@@ -145,7 +149,7 @@ class GibbsExperiment() :
             _result["sigmas"] = simulator.sigmas
             _result["original_pome_model"] =  pome_results["model"]
             _result["state_to_distrbution_mapping"] =  pome_results["state_to_distrbution_mapping"]
-            _result['start_probabilites']= pome_results['start_probabilites']
+            _result['start_probabilites'] = pome_results['start_probabilites']
             #endregion
 
             all_results_of_model[exp_idx] = _result
@@ -177,7 +181,8 @@ class GibbsExperiment() :
 
         files_in_folder = GibbsExperiment.load_all_experiments_from_folder(os.path.join(r"../../cache/", dir_cache_path),
                                                                            only_path=True)
-        same_experiment = list(filter(lambda x: os.path.basename(cache_path).split('.pkl')[0] in x,files_in_folder.values()))
+
+        same_experiment = GibbsExperiment.__get_same_experiments(cache_path,files_in_folder,combined_params)
 
         if len(same_experiment) == 0 : return False
 
@@ -188,6 +193,29 @@ class GibbsExperiment() :
         most_relevent = same_exp_pkl[np.argmax(times_as_date_times)]
 
         return most_relevent
+
+    @staticmethod
+    def __get_same_experiments(cache_path, files_in_folder,combined_params):
+        def is_the_same(a,b)  :
+            if (isinstance(a, Iterable) and isinstance(b, Iterable) ):
+                return list(a) == list(b)
+            else :
+                return a==b
+
+        same_experiment = []
+        _same_experiments = files_in_folder.values() #list(filter(lambda x: os.path.basename(cache_path).split('.pkl')[0] in x,files_in_folder.values()))
+        for exp in _same_experiments :
+            if ".pkl" in exp : continue
+
+            with open(os.path.join(os.path.dirname(cache_path),exp),'r') as f :
+                exp_params = json.load(f)
+
+            if all([is_the_same(combined_params[key] , exp_params[key]) for key in set(exp_params.keys()).intersection(set(combined_params.keys()))]) :
+                same_experiment.append(exp.split("_params")[0] + ".pkl" )
+
+        return same_experiment
+
+
 
     @staticmethod
     def _load_from_cache(combined_params,exp_cache) :
@@ -207,7 +235,8 @@ class GibbsExperiment() :
         mutual_params_summ = '.'.join([f"{str(k).split('is_')[-1][:4]}{str(v)[:3]}" for k, v in params_dict.items() if
                                        not (("acycl" in k) or ("sigma" in k) or ("mues" in k) or ("inner" in k) or (
                                                    "is_mh" in k) or ("multi" in k) or ("w_smapler" in k) or (
-                                                        "exp_n" in k))])
+                                                        "exp_n" in k)or (
+                                                        "non_cons" in k))])
         cache_path = os.path.join(r"../../cache", dir_cache_path, f"{mutual_params_summ}_{date_time}.pkl")
         params_path = os.path.join(r"../../cache", dir_cache_path, f"{mutual_params_summ}_{date_time}_params.txt")
 
@@ -241,9 +270,9 @@ class GibbsExperiment() :
     def _is_valid_experiment(params):
         if ((params['is_few_observation_model'] == True) and (params['p_prob_of_observation'] == 1)):
             return False
-        if ((params['is_few_observation_model'] == False) and (
-                params['is_only_seen'] == "observed" or params['is_only_seen'] == "extended")):
-            return False
+        # if ((params['is_few_observation_model'] == False) and (
+        #         params['is_only_seen'] == "observed" or params['is_only_seen'] == "extended")):
+        #     return False
         if ((params['is_few_observation_model'] == False) and (params["is_known_W"] == True)):
             return False
         if "numerical_reconstruction_pc" in params.keys() :
@@ -286,8 +315,11 @@ class GibbsExperiment() :
 
     @staticmethod
     def _rechoose_n_iters(params):
+        if not params["is_few_observation_model"]  : return 10
+        # if "PC_guess" in
+        # if (params["PC_guess"] == 1) : return 20
+        if params["is_known_W"] : return min(20,params["N_itres"])
         if type(params["p_prob_of_observation"]) is tuple : return params["N_itres"]
-        if params["is_few_observation_model"] == False : return 5
         if params["p_prob_of_observation"] > 0.55 : return 50
         return params["N_itres"]
 
@@ -302,18 +334,12 @@ class GibbsExperiment() :
 
         st_par_map = pome_results['state_to_distrbution_param_mapping']
         is_known_emmi = type(st_par_map[list(st_par_map.keys())[0]]) is dict
-
-        if not GibbsExperiment._is_valid_experiment(params) : return None
-        print(params)
-
         # solve
-
-        params["N_itres"] = GibbsExperiment._rechoose_n_iters(params)
 
         sampler = GibbsSampler(N, params['d'],transition_sampling_profile= transition_sampling_profile,
                                multi_process= is_multi_process)
 
-        relevent_sampling_method = GibbsExperiment.__sampling_method_from_params(use_pomegranate,is_known_W,
+        relevent_sampling_method = GibbsExperiment.__sampling_method_from_params(params, use_pomegranate,is_known_W,
                                                                                  is_numerical_reconstruction,is_pc_guess
                                                                                  )
 
@@ -330,7 +356,8 @@ class GibbsExperiment() :
         if relevent_sampling_method == "N from outside" :
             if not is_known_emmi :
                 all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                    sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
+                    sampler.sample(all_relvent_observations, {k:(1/len(pome_results['start_probabilites'])) for k
+                                                              in pome_results['start_probabilites'].keys()},
                                    mues_for_sampler, sigmas_for_sampler, params['N_itres'],
                                    w_smapler_n_iter=w_smapler_n_iter,
                                    is_mh=params["is_mh"])
@@ -356,7 +383,7 @@ class GibbsExperiment() :
 
             if not is_known_emmi :
                 all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                    sampler.sample_guess_pc(all_relvent_observations, pome_results['start_probabilites'],
+                    sampler.sample_guess_pc(all_relvent_observations, {k:(1/len(pome_results['start_probabilites'])) for k in pome_results['start_probabilites'].keys()},
                                             mues_for_sampler, sigmas_for_sampler, params['N_itres'],
                                             PC_guess=_pc_guess,
                                             w_smapler_n_iter=w_smapler_n_iter,
@@ -384,7 +411,7 @@ class GibbsExperiment() :
 
             if not is_known_emmi :
                 all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                        sampler.sample(all_relvent_observations, pome_results['start_probabilites'],
+                        sampler.sample(all_relvent_observations, {k:(1/len(pome_results['start_probabilites'])) for k in pome_results['start_probabilites'].keys()},
                                        mues_for_sampler, sigmas_for_sampler, 20,
                                        w_smapler_n_iter=1,
                                        is_mh=params["is_mh"])
@@ -402,17 +429,21 @@ class GibbsExperiment() :
             all_observations_sum = None
             all_mues = None
 
+            if params['numerical_reconstruction_pc'] == "known" :
+                numerical_reconstruction_pc = params["p_prob_of_observation"]
+            else :
+                numerical_reconstruction_pc = params["numerical_reconstruction_pc"]
+
             all_transitions = list(
                         map(lambda x: NumericalCorrection.reconstruct_full_transitions_dict_from_few(x.copy(),
-                                                                                                     params[
-                                                                                                         'numerical_reconstruction_pc'],
+                                                                                                     numerical_reconstruction_pc,
                                                                                                      pome_results['start_probabilites']),
                             all_transitions))
 
         if relevent_sampling_method == "Known W":
             if not  is_known_emmi :
                 all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions = \
-                    sampler.sample_known_W(all_relvent_observations, pome_results['start_probabilites'],
+                    sampler.sample_known_W(all_relvent_observations, {k:(1/len(pome_results['start_probabilites'])) for k in pome_results['start_probabilites'].keys()},
                                            mues_for_sampler, sigmas_for_sampler, params['N_itres'], known_w,
                                            w_smapler_n_iter=w_smapler_n_iter,
                                            is_mh=params["is_mh"])
@@ -465,7 +496,8 @@ class GibbsExperiment() :
         return sets_of_params_dicts
 
     @staticmethod
-    def __sampling_method_from_params(use_pomegranate,is_known_W,is_numerical_reconstruction,is_pc_guess):
+    def __sampling_method_from_params(params,use_pomegranate,is_known_W,is_numerical_reconstruction,is_pc_guess):
+        if not params['is_few_observation_model'] : return "N from outside"
         if is_numerical_reconstruction :
             return "numerical reconstruction"
 
