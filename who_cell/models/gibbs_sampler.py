@@ -38,6 +38,8 @@ class GibbsSampler() :
                known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False, impossible_transitions = None):
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
+        impossible_transitions = impossible_transitions if not (impossible_transitions is None) else {s:[] for s in states}
+
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues, sigmas,
                                                                                                      states)
 
