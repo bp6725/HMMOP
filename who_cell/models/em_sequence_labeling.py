@@ -67,10 +67,12 @@ class EmSequenceLabeling():
             emissions_table = EmSequenceLabeling.impute_emissions_table_with_zeros(emissions_table,observations)
 
         all_ml_paths = []
-        for sentence, guess,n in zip(observations, guess_state_per_obs,N):
-            mlp = EmSequenceLabeling._ml_path(sentence, n, pome_model,
-                                              emissions_table, guess, Ng_iters,is_known_emissions)
-            all_ml_paths.append(mlp)
+        with tqdm(len(observations)) as p :
+            for sentence, guess,n in zip(observations, guess_state_per_obs,N):
+                mlp = EmSequenceLabeling._ml_path(sentence, n, pome_model,
+                                                  emissions_table, guess, Ng_iters,is_known_emissions)
+                all_ml_paths.append(mlp)
+                p.update(1)
 
         return all_ml_paths
 
