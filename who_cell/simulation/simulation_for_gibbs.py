@@ -3,6 +3,7 @@ import numpy as np
 import itertools
 from who_cell.Infras import Infras
 from who_cell.simulation.known_transition_matrices import KnownTransition_matrices
+import random
 
 class Simulator_for_Gibbs():
     def __init__(self,N,d,n_states,easy_mode=False,max_number_of_sampled_traj = None,sigma = 0.1 ):
@@ -500,7 +501,9 @@ class Simulator_for_Gibbs():
     @Infras.storage_cache
     def build_bipartite_template_model_parameters(self, N, d, mues, sigmas,inner_outer_trans_probs_ratio):
         n_states = len(mues)
-        all_distrbutions_params_mapping = {str((mu, sigmas[i])): (mu, sigmas[i]) for i, mu in enumerate(mues)}
+        all_distrbutions_params_mapping = {str((mu, sig)): (mu, sig) for i, (mu,sig) in enumerate(zip(mues,sigmas))}
+        all_distrbutions_params_mapping = {k: v for k, v in
+         random.sample(all_distrbutions_params_mapping.items(), len(all_distrbutions_params_mapping.items()))}
 
         # build groups and state -> group mapping
         groups = [list(all_distrbutions_params_mapping.keys())[i:i + d] for i in

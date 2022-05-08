@@ -809,10 +809,10 @@ class GibbsSampler() :
     def _sample_N_window(self,from_state,to_state,n_steps_transitions,N_factor):
         prob_function = lambda n : n_steps_transitions[n][from_state][to_state]*(N_factor)*((1-N_factor)**(n-1))
 
-        probs = np.array(list(map(prob_function,range(1,100))))
+        probs = np.array(list(map(prob_function,range(1,len(n_steps_transitions[1])))))
         norm_probs = probs/probs.sum()
 
-        return np.random.choice(list(range(1,100)),p=norm_probs)
+        return np.random.choice(list(range(1,len(n_steps_transitions))),p=norm_probs)
 
     def _calculate_last_time_from_state(self,N_factor):
         prob_function = lambda n: (N_factor) * ((1 - N_factor) ** (n - 1))

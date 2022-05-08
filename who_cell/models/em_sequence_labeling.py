@@ -11,6 +11,8 @@ import copy
 from collections import Mapping
 from pomegranate.distributions import NormalDistribution,DiscreteDistribution
 from who_cell.models.utils import Utils
+from functools import reduce
+import pandas as pd
 
 class EmSequenceLabeling():
     def __init__(self):
@@ -56,21 +58,30 @@ class EmSequenceLabeling():
 
     @staticmethod
     def most_likely_path(observations, transitions_prob, start_probs,
-                         emissions_table, Ng_iters, N=2):
+                         emissions_table, Ng_iters, N,W = None):
         is_known_emissions = type(
             emissions_table[list(emissions_table.keys())[0]]) is dict
-        guess_state_per_obs = [[EmSequenceLabeling._closest_state(emissions_table, obs,is_known_emissions) for obs in sentence] for
-                               sentence in observations]
-        pome_model = EmSequenceLabeling._build_pome_model_of_chain(transitions_prob, start_probs, emissions_table)[0]
 
         if is_known_emissions :
             emissions_table = EmSequenceLabeling.impute_emissions_table_with_zeros(emissions_table,observations)
 
+        pome_model = EmSequenceLabeling._build_pome_model_of_chain(transitions_prob, start_probs, emissions_table)[0]
+
+        guess_state_per_obs = [
+            [EmSequenceLabeling._closest_state(emissions_table, obs, is_known_emissions) for obs in sentence] for
+            sentence in observations]
+
+        n_steps_transitions = GibbsSampler.build_n_steps_transitions_dicts(transitions_prob, 10)
+
         all_ml_paths = []
-        for sentence, guess,n in zip(observations, guess_state_per_obs,N):
-            mlp = EmSequenceLabeling._ml_path(sentence, n, pome_model,
-                                              emissions_table, guess, Ng_iters,is_known_emissions)
-            all_ml_paths.append(mlp)
+        with tqdm(len(observations)) as p:
+            for i,(sentence, guess,n) in enumerate(zip(observations, guess_state_per_obs,N)):
+                w = None if (W is None) else W[i]
+                w = list(range(n)) if len(sentence) == n else w
+                mlp = EmSequenceLabeling._ml_path(sentence, n, pome_model,n_steps_transitions,
+                                                  emissions_table, guess, Ng_iters,is_known_emissions,w)
+                all_ml_paths.append(mlp)
+                p.update(1)
 
         return all_ml_paths
 
@@ -87,7 +98,6 @@ class EmSequenceLabeling():
             return {k:{kk:(vv if vv != 0 else 1e-9) for kk,vv in v.items()} for k,v in new_emissions_table.items()}
 
         return new_emissions_table
-
 
     @staticmethod
     def _build_pome_model_of_chain(transition_matrix_sparse, start_probs, state_to_distrbution_param_mapping) :
@@ -155,13 +165,26 @@ class EmSequenceLabeling():
         return max_state
 
     @staticmethod
-    def _ml_path(sentence, N, pome_model, emissions_table, guess, Ng_iters,is_known_emissions):
-        W = sorted(np.random.choice(range(max(N, len(sentence))), len(sentence), replace=False))
-        X = EmSequenceLabeling._return_initial_X(W, guess, N)
+    def _ml_path(sentence, N, pome_model,n_steps_transitions, emissions_table, guess, Ng_iters,is_known_emissions,W = None):
+        is_unknown_w = (W is None)
+        if is_unknown_w :
+            W = EmSequenceLabeling.init_guess_w_per_sentence( sentence,n_steps_transitions,guess,N)
+            if len(W) != len(sentence) :
+                # print((len(W) , len(sentence)) )
+                # raise Exception()
+                W = sorted(np.random.choice(range(max(N, len(sentence))), len(sentence), replace=False))
+
+        # X = EmSequenceLabeling._return_initial_X(W, guess, N)
 
         for iter in range(Ng_iters):
-            W = EmSequenceLabeling._return_optimal_W(X, sentence, emissions_table,is_known_emissions)
-            X = EmSequenceLabeling._return_optimal_X(sentence, W, pome_model, N)
+            # if is_unknown_w:
+            #     W = EmSequenceLabeling._return_optimal_W(X, sentence, emissions_table,is_known_emissions)
+            if is_unknown_w :
+                X = EmSequenceLabeling._return_optimal_X(sentence, W, pome_model, N)
+                W = EmSequenceLabeling._return_optimal_W(X, sentence, emissions_table, is_known_emissions)
+            else :
+                X = EmSequenceLabeling._return_optimal_X(sentence, W, pome_model, N)
+                break
 
         return [X[w] for w in W]
 
@@ -503,3 +526,136 @@ class EmSequenceLabeling():
             opt.insert(0, V[t + 1][previous]["prev"])
             previous = V[t + 1][previous]["prev"]
         return opt
+
+    @staticmethod
+    def multi_choice_ksp(data_df, max_weight):
+        n_bins = (len(data_df.bin.unique()))
+
+        K = np.zeros((n_bins, max_weight + 1)) + np.finfo(float).eps
+        # track = {i:{ii:[] for ii in range(max_weight+1)} for i in range(-1,n_bins)}
+        track = np.zeros((data_df.shape[0], max_weight + 1))
+
+        min_w = 0  # data_df.groupby("bin").min().sum()['Cost']
+        for i in range(0, n_bins):
+            for w in range(min_w, max_weight + 1):
+                op_in_bin = data_df[data_df["bin"] == i]
+                options = []
+                options.append(K[i - 1][w])
+                for j in range(op_in_bin.shape[0]):
+                    adj_w = w - op_in_bin.iloc[j]["Cost"]
+                    rel_point = op_in_bin.iloc[j]["Points"]
+                    opt = K[i - 1][adj_w] + rel_point if (
+                            (op_in_bin.iloc[j]["Cost"] < w) and (K[i - 1][adj_w] != 0)) else 0
+                    options.append(opt)
+                best_option_j = np.argmax(options)
+                K[i][w] = options[best_option_j]
+
+                if best_option_j != 0:
+                    track[op_in_bin.iloc[best_option_j - 1]["id"]][w] = op_in_bin.iloc[best_option_j - 1]["Cost"]
+
+        alloc_ind = [i for i, w in enumerate(track.sum(axis=0) < max_weight) if w][-1]
+        alloc = [i for i in range(track.shape[0]) if track[i][alloc_ind] > 0]
+        return K[-1][-1], alloc
+
+    @staticmethod
+    def _calculate_first_state_time(first_obs, n_steps_transitions, N_factor):
+        all_states = n_steps_transitions[1].keys()
+
+        probs_per_pos_state = []
+        for _pos_orig_state in all_states:
+            _probs_pos_state = EmSequenceLabeling.calculate_probs_single_orig(_pos_orig_state, first_obs, n_steps_transitions, N_factor)
+            probs_per_pos_state.append(np.array(_probs_pos_state))
+
+        probs_per_N = reduce(lambda x, y: x + y, probs_per_pos_state)
+        return probs_per_N
+
+    @staticmethod
+    def _calculate_last_time_from_state(N_factor, dept=5):
+        prob_function = lambda n: (N_factor) * ((1 - N_factor) ** (n - 1))
+        probs = np.array(list(map(prob_function, range(1, dept))))
+        norm_probs = probs / probs.sum()
+
+        return norm_probs
+
+    @staticmethod
+    def calculate_probs_single_orig(_pos_orig_state, first_obs, n_steps_transitions, N_factor):
+        all_n_steps = [trans_dict[_pos_orig_state][first_obs] for trans_dict in n_steps_transitions.values()]
+        P_ab_all_N = np.mean(all_n_steps)
+
+        probs = [
+            n_steps_transitions[i][_pos_orig_state][first_obs] * P_ab_all_N * (N_factor) * ((1 - N_factor) ** (i - 1))
+            for
+            i in n_steps_transitions.keys()]
+        return probs
+
+    @staticmethod
+    def _sample_N_window(from_state, to_state, n_steps_transitions, N_factor):
+        prob_function = lambda n: n_steps_transitions[n][from_state][to_state] * (N_factor) * (
+                    (1 - N_factor) ** (n - 1))
+
+        probs = np.array(list(map(prob_function, range(1, len(n_steps_transitions) + 1))))
+        norm_probs = probs / probs.sum()
+
+        return probs
+
+    @staticmethod
+    def multi_choice_ksp(data_df, max_weight):
+        n_bins = (len(data_df.bin.unique()))
+
+        K = np.zeros((n_bins, max_weight + 1)) + np.finfo(float).eps
+        # track = {i:{ii:[] for ii in range(max_weight+1)} for i in range(-1,n_bins)}
+        track = np.zeros((data_df.shape[0], max_weight + 1))
+
+        min_w = 0  # data_df.groupby("bin").min().sum()['Cost']
+        for i in range(0, n_bins):
+            for w in range(min_w, max_weight + 1):
+                op_in_bin = data_df[data_df["bin"] == i]
+                options = []
+                options.append(K[i - 1][w])
+                for j in range(op_in_bin.shape[0]):
+                    adj_w = int(w - op_in_bin.iloc[j]["Cost"])
+                    rel_point = op_in_bin.iloc[j]["Points"]
+                    opt = K[i - 1][adj_w] + rel_point if (
+                            (op_in_bin.iloc[j]["Cost"] < w) and (K[i - 1][adj_w] != 0)) else 0
+                    options.append(opt)
+                best_option_j = np.argmax(options)
+                K[i][w] = options[best_option_j]
+
+                if best_option_j != 0:
+                    track[int(op_in_bin.iloc[best_option_j - 1]["id"])][w] = op_in_bin.iloc[best_option_j - 1]["Cost"]
+
+        alloc_ind = [i for i, w in enumerate(track.sum(axis=0) < max_weight) if w][-1]
+        alloc = [i for i in range(track.shape[0]) if track[i][alloc_ind] > 0]
+        return K[-1][-1], alloc
+
+    @staticmethod
+    def init_guess_w_per_sentence(miss_sentence, n_steps_transitions,guess_state_per_obs, N=50):
+        N_factor = len(miss_sentence) / N
+
+        # extrect probabilites per skip len
+        first_state_time = EmSequenceLabeling._calculate_first_state_time(guess_state_per_obs[0], n_steps_transitions, N_factor)
+        last_time_from_state = EmSequenceLabeling._calculate_last_time_from_state(N_factor, len(n_steps_transitions) + 1)
+        transitions_windows_time = [EmSequenceLabeling._sample_N_window(_f, _t, n_steps_transitions, N_factor)
+                                    for _f, _t in zip(guess_state_per_obs, guess_state_per_obs[1:])]
+
+        probs_list = [list(first_state_time)] + list(map(list, transitions_windows_time)) + [list(last_time_from_state)]
+
+        # set up for mu-ch kans
+        n_options = len(probs_list[0])
+        n_bins = len(probs_list)
+
+        bins_ind = list(itertools.chain(*[[i for ii in range(n_options)] for i in range(n_bins)]))
+        idxs = list(range(len(list(itertools.chain(*probs_list)))))
+        weights = list(itertools.chain(*[[ii for ii in range(1, n_options + 1)] for i in range(n_bins)]))
+        points = list(itertools.chain(*probs_list))
+        data_df = pd.DataFrame(columns=["id", "bin", "Cost", "Points"], data=list(zip(idxs, bins_ind, weights, points)))
+
+        # multi_choice_ksp
+        _, alloc = EmSequenceLabeling.multi_choice_ksp(data_df, N)
+        W = np.cumsum(data_df[data_df["id"].isin(alloc)]["Cost"].values)[:-1]
+
+        return W -1
+
+
+
+
