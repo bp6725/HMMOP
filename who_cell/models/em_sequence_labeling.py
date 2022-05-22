@@ -655,7 +655,3 @@ class EmSequenceLabeling():
         W = np.cumsum(data_df[data_df["id"].isin(alloc)]["Cost"].values)[:-1]
 
         return W -1
-
-
-
-

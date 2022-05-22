@@ -124,6 +124,19 @@ class GibbsSampler() :
 
     def probability_over_known_transition(self,known_emissions, missing_sentences, curr_trans, start_probs,
                                           emmisions_params, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
+        '''
+        Probability pver all possible W
+        :param known_emissions:
+        :param missing_sentences:
+        :param curr_trans:
+        :param start_probs:
+        :param emmisions_params:
+        :param Ng_iters:
+        :param w_smapler_n_iter:
+        :param N:
+        :param is_mh:
+        :return:
+        '''
         state_to_distrbution_param_mapping = {state:state for state in start_probs.keys()}
 
         possible_w = self.sample_W_options(known_emissions, missing_sentences, curr_trans, start_probs,
@@ -538,7 +551,6 @@ class GibbsSampler() :
         #sample D
         w_adj, N_adj,d_lists = self.build_N_list(X_walk, const_w, curr_trans, PC_guess,return_d = True)
 
-
         all_sampled_transitions = [curr_trans]
         all_transitions = [curr_trans]
         all_states = [X_walk]
@@ -552,7 +564,7 @@ class GibbsSampler() :
                     state_to_distrbution_param_mapping, curr_mus)
 
                 if self.transition_sampling_profile == "all" :
-                    # sample transitions from the adj W and N - first we Samle long walk and then calculate
+                    # sample transitions from the adj W and N - first we Sample long walk and then calculate
                     for_T_walk, _ = self.sample_walk_from_params(all_relvent_observations, N_adj,
                                                                 state_to_distrbution_param_mapping, start_probs,
                                                                 w_adj, curr_trans)
@@ -569,13 +581,10 @@ class GibbsSampler() :
 
                 w_adj, N_adj,d_lists = self.build_N_list(X_walk, const_w, curr_trans, PC_guess,return_d = True)
 
-
                 sampled_states, observations_sum = self._exrect_samples_from_walk(X_walk, all_relvent_observations,
                                                                                   const_w,
                                                                                   state_to_distrbution_param_mapping,
                                                                                   curr_mus, sigmas)
-
-
 
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
@@ -717,6 +726,8 @@ class GibbsSampler() :
     @staticmethod
     def power_matrix_np(matrix, power):
         if power == 0: return np.eye(matrix.shape[0])
+        if matrix.shape[0] != matrix.shape[1] :
+            raise Exception("matrix not aligned ")
         final = matrix
         for i in range(1, power):
             final = final.dot(matrix)
@@ -726,7 +737,7 @@ class GibbsSampler() :
     def build_n_steps_transitions_dicts(transition_dict, max_step=100):
         _transition_dict = {k:{kk:vv for kk,vv in v.items() if kk not in ['start','end']} for
                             k,v in transition_dict.items() if k not in ['start','end']}
-        _transition_matrix = pd.DataFrame(_transition_dict).dropna(axis=1).sort_index(axis=1).sort_index(axis=0).T
+        _transition_matrix = pd.DataFrame(_transition_dict).fillna(0).sort_index(axis=1).sort_index(axis=0).T
 
         transitions = {}
         for i in range(1, max_step):
@@ -812,7 +823,7 @@ class GibbsSampler() :
         probs = np.array(list(map(prob_function,range(1,len(n_steps_transitions[1])))))
         norm_probs = probs/probs.sum()
 
-        return np.random.choice(list(range(1,len(n_steps_transitions))),p=norm_probs)
+        return np.random.choice(list(range(1,len(norm_probs) + 1 )),p=norm_probs)
 
     def _calculate_last_time_from_state(self,N_factor):
         prob_function = lambda n: (N_factor) * ((1 - N_factor) ** (n - 1))
@@ -1798,6 +1809,143 @@ class GibbsSampler() :
         return sum(posterior[-1].values())
 
     # endregion
+
+    #region inference releted
+
+    def sequence_labeling_known_emissions(self, all_relvent_observations, transitions_probs, start_probs,
+                                          emissions_table, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=True):
+        emissions_table = self.impute_emissions_table_with_zeros(emissions_table, all_relvent_observations)
+        N = self.N if N is None else N
+
+        curr_trans = transitions_probs
+
+        if type(N) is list:
+            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs, _N in
+                      zip(all_relvent_observations, N)]
+        else:
+            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                      all_relvent_observations]
+
+        curr_walk, alpha = self.sample_walk_from_params(all_relvent_observations, N,
+                                                        emissions_table, start_probs,
+                                                        curr_w, curr_trans)
+        _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
+
+        all_alphas = [alpha]
+        all_ws = [curr_w]
+        all_states_picked_by_w = [_states_picked_by_w]
+        all_walks = []
+        with tqdm(total=Ng_iters) as pbar:
+            for i in range(Ng_iters):
+                curr_w, alpha1 = self.sample_ws_from_params(all_relvent_observations, curr_walk, emissions_table, N,
+                                                            n_iters=w_smapler_n_iter,
+                                                            curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                         emissions_table],
+                                                            stage_name="w" if is_mh else "no_mh",
+                                                            observations=all_relvent_observations)
+                _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
+
+                curr_walk, alpha2 = self.sample_walk_from_params(all_relvent_observations, N,
+                                                                 emissions_table, start_probs,
+                                                                 curr_w, curr_trans,
+                                                                 curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                              emissions_table],
+                                                                 stage_name="walk" if is_mh else "no_mh",
+                                                                 observations=all_relvent_observations)
+
+                all_walks.append(curr_walk)
+                all_alphas.append(np.mean([alpha1, alpha2]))
+                all_states_picked_by_w.append(_states_picked_by_w)
+                all_ws.append(curr_w)
+                pbar.update(1)
+        return all_ws, all_states_picked_by_w, all_alphas, all_walks
+
+    def infer_w_known_T(self, all_relvent_observations, start_probs, curr_trans,
+                        emissions_table, Ng_iters, N, w_smapler_n_iter=100, is_mh=False):
+        states = list(set(list(start_probs.keys()) + ['start', 'end']))
+
+        if type(N) is list:
+            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs, _N in
+                      zip(all_relvent_observations, N)]
+        else:
+            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                      all_relvent_observations]
+
+        curr_walk, alpha = self.sample_walk_from_params(all_relvent_observations, N, emissions_table,
+                                                        start_probs,
+                                                        curr_w, curr_trans)
+        picked_by_w = [[[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]]
+        all_states = [curr_walk]
+        all_ws = [curr_w]
+        with tqdm(total=Ng_iters) as pbar:
+            for i in range(Ng_iters):
+                curr_w, _ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
+                                                       emissions_table, N,
+                                                       n_iters=w_smapler_n_iter,
+                                                       curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                    emissions_table],
+                                                       stage_name="w" if is_mh else "no_mh",
+                                                       observations=all_relvent_observations)
+                _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
+
+                curr_walk, _ = self.sample_walk_from_params(all_relvent_observations, N,
+                                                            emissions_table, start_probs,
+                                                            curr_w, curr_trans,
+                                                            curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                         emissions_table],
+                                                            stage_name="walk" if is_mh else "no_mh",
+                                                            observations=all_relvent_observations)
+
+                all_states.append(curr_walk)
+                all_ws.append(curr_w)
+                picked_by_w.append(_states_picked_by_w)
+                pbar.update(1)
+        return all_states, all_ws,picked_by_w
+
+    def infer_ds_known_T(self, all_relvent_observations, start_probs, curr_trans,
+                         known_emmisions, Ng_iters, PC_guess):
+        states = list(set(list(start_probs.keys()) + ['start', 'end']))
+
+        # sample first walk - as naive. the length of X is as Obs
+        N = [len(O) for O in all_relvent_observations]
+        const_w = [list(range(len(O))) for O in all_relvent_observations]
+        X_walk, _ = self.sample_walk_from_params(all_relvent_observations, N, known_emmisions,
+                                                 start_probs,
+                                                 const_w, curr_trans)
+        # sample D
+        w_adj, N_adj, d_lists = self.build_N_list(X_walk, const_w, curr_trans, PC_guess, return_d=True)
+
+        all_states = [X_walk]
+        all_ws = [const_w]
+        all_ws_adj = [w_adj]
+        with tqdm(total=Ng_iters) as pbar:
+            for i in range(Ng_iters):
+
+                if self.transition_sampling_profile == "all":
+                    # sample transitions from the adj W and N - first we Sample long walk and then calculate
+                    for_T_walk, _ = self.sample_walk_from_params(all_relvent_observations, N_adj,
+                                                                 known_emmisions, start_probs,
+                                                                 w_adj, curr_trans)
+                    sampled_transitions = self._exrect_transitions_from_walk(for_T_walk, states, const_w)
+                else:
+                    sampled_transitions = self._smaple_transitions_from_d_1(X_walk, d_lists, states)
+                _, _ = self.sample_trans_from_params(sampled_transitions, states)
+                n_steps_trans = self.build_n_steps_transitions_dicts(curr_trans)
+
+                # sample current X walk from d lists
+                X_walk, _ = self.sample_walk_from_params(all_relvent_observations, d_lists,
+                                                         known_emmisions, start_probs,
+                                                         None, n_steps_trans)
+
+                w_adj, N_adj, d_lists = self.build_N_list(X_walk, const_w, curr_trans, PC_guess, return_d=True)
+
+                all_states.append(for_T_walk)
+                all_ws.append(d_lists)
+                all_ws_adj.append(w_adj)
+                pbar.update(1)
+        return all_states, all_ws, all_ws_adj
+
+    #endregion
 
 if __name__ == '__main__':
     pass

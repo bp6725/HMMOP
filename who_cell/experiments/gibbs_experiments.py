@@ -345,6 +345,7 @@ class GibbsExperiment() :
         relevent_sampling_method = GibbsExperiment.__sampling_method_from_params(params, use_pomegranate,is_known_W,
                                                                                  is_numerical_reconstruction,is_pc_guess
                                                                                  )
+        print(relevent_sampling_method)
 
         if relevent_sampling_method == "pomegranate" :
             _transitions = sampler.reconstruction_using_pomegranate(all_relvent_observations,
