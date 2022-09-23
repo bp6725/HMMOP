@@ -95,19 +95,19 @@ class GibbsExperiment() :
         hyper_params_sets, max_number_of_sampled_traj = GibbsExperiment._return_params_sets(mutual_model_params_dict,
                                                                                            hyper_params_dict)
 
-        # simulate
+        # build simulator
         simulator = Simulator_for_Gibbs(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
                                         mutual_model_params_dict['n_states'], easy_mode=True,
                                         max_number_of_sampled_traj =max_number_of_sampled_traj,
                                         sigma=mutual_model_params_dict['sigma']) # we need max_number_of_sampled_traj to know how much traj to pre sample so the traj will be mutual
 
-        pome_results = simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
+        model_object = simulator.build_pome_model(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
                                        simulator.mues, simulator.sigmas,
                                        is_bipartite = mutual_model_params_dict['bipartite'],
                                        inner_outer_trans_probs_ratio = mutual_model_params_dict['inner_outer_trans_probs_ratio'],
                                                   mutual_model_params_dict = mutual_model_params_dict)
 
-        simulator.update_known_mues_and_sigmes_to_state_mapping(pome_results["state_to_distrbution_param_mapping"])
+        simulator.update_known_mues_and_sigmes_to_state_mapping(model_object["state_to_distrbution_param_mapping"])
 
         for exp_idx,hyper_param_set in enumerate(hyper_params_sets) :
             _hyper_param_set, combined_params, mues_for_sampler, sigmas_for_sampler = GibbsExperiment._return_hyper_params_set(hyper_param_set,
@@ -116,7 +116,6 @@ class GibbsExperiment() :
 
             if not GibbsExperiment._is_valid_experiment(combined_params): continue
             print(combined_params)
-
 
             exp_cache = GibbsExperiment.extrect_exp_cache_name(combined_params, mutual_model_params_dict)
             if skip_sampler and exp_cache :
@@ -130,11 +129,11 @@ class GibbsExperiment() :
             print("start simulate")
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
             all_relvent_sampled_trajs_states,known_ws),_ = \
-                simulator.simulate_observations(pome_results["model"],combined_params,
-                                                pome_results['params_signature'],from_pre_sampled_traj = True)
+                simulator.simulate_observations(model_object["model"],combined_params,
+                                                model_object['params_signature'],from_pre_sampled_traj = True)
             print("start solve")
             result = GibbsExperiment.solve_return_results_mutual_model(combined_params,
-                                                                       pome_results, all_relvent_observations,
+                                                                       model_object, all_relvent_observations,
                                                                        mues_for_sampler, sigmas_for_sampler,
                                                                        w_smapler_n_iter=combined_params[
                                                                            'w_smapler_n_iter'], known_w=known_ws)
@@ -150,9 +149,9 @@ class GibbsExperiment() :
             _result['known_ws'] = known_ws
             _result["simulator"] = simulator
             _result["sigmas"] = simulator.sigmas
-            _result["original_pome_model"] =  pome_results["model"]
-            _result["state_to_distrbution_mapping"] =  pome_results["state_to_distrbution_mapping"]
-            _result['start_probabilites'] = pome_results['start_probabilites']
+            _result["original_pome_model"] =  model_object["model"]
+            _result["state_to_distrbution_mapping"] =  model_object["state_to_distrbution_mapping"]
+            _result['start_probabilites'] = model_object['start_probabilites']
             #endregion
 
             all_results_of_model[exp_idx] = _result
@@ -217,8 +216,6 @@ class GibbsExperiment() :
                 same_experiment.append(exp.split("_params")[0] + ".pkl" )
 
         return same_experiment
-
-
 
     @staticmethod
     def _load_from_cache(combined_params,exp_cache) :
