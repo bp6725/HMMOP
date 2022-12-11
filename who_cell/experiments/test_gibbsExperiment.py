@@ -17,32 +17,6 @@ if not sys.warnoptions:
 
 
 class TestGibbsExperiment(TestCase):
-    def test_run_multi_params_and_plot_report_remote_aws(self):
-        model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
-        params_dict = {
-            'is_acyclic': [True],
-            'known_mues': [True],
-            "is_few_observation_model": [True],
-            "is_only_seen": ["all"],
-            'N': [80],
-            'd': [5],
-            "bipartite": [False],
-            "inner_outer_trans_probs_ratio": [50],
-            'n_states': [10],
-            'sigma': [0.1],
-            'number_of_smapled_traj': [1500],
-            'p_prob_of_observation': [0.35, 0.5, 0.6, 0.75, 0.9, 1.0],
-            'N_itres': [80],
-            'is_mh': [False],
-            'w_smapler_n_iter': [100],
-            'is_known_W': [ False],
-            "is_multi_process": [True],
-            "PC_guess": [0.5],
-            "numerical_reconstruction_pc": [0.5],
-            "is_numerical_reconstruction_method": [ False]
-        }
-        all_models_results = GibbsExperiment.run_multi_params_and_return_results(params_dict, model_defining_params_pre,
-                                                                                 skip_sampler=False)
 
     def test_run_multi_params_and_plot_report(self):
         model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', "known_dataset"]
@@ -132,12 +106,38 @@ class TestGibbsExperiment(TestCase):
                                                                                           model_defining_params_pre,
                                                                                           skip_sampler=True)
 
+    def test_run_multi_params_with_unignorableOP(self):
+        model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
+        params_dict = {
+            'is_acyclic': [True],
+            'known_mues': [True],
+            "is_few_observation_model": [True],
+            "is_only_seen": ["all"],
+            'N': [50],
+            'd': [5],
+            "bipartite": [False],
+            "inner_outer_trans_probs_ratio": [50],
+            'n_states': [10],
+            'sigma': [0.1],
+            'number_of_smapled_traj': [2000],
+            'p_prob_of_observation': ["SD"],
+            'N_itres': [50],
+            'is_mh': [False],
+            'w_smapler_n_iter': [120],
+            'is_known_W': [False],
+            "is_multi_process": [True],
+            "exp_name": ["non-ignorable omitting first test"]
+        }
+        all_models_results_syntetic = GibbsExperiment.run_multi_params_and_return_results(params_dict,
+                                                                                          model_defining_params_pre,
+                                                                                          skip_sampler=True)
+
     def test_run_multi_params_and_return_results(self):
         mutual_model_params_dict = {
             'is_acyclic': True,
             'known_mues': True,
             "is_few_observation_model": True,
-            "is_only_seen": 'observed',
+            "is_only_seen": 'all',
             'N': 50,
             'd': 5,
             "bipartite": False,
@@ -150,7 +150,7 @@ class TestGibbsExperiment(TestCase):
             'is_mh': False,
             "known_dataset": -1,
             'w_smapler_n_iter': 100}
-        run_name = "P(C) = 0.5"
+        run_name = "tmptmp"
 
         simulator = Simulator_for_Gibbs(mutual_model_params_dict['N'], mutual_model_params_dict['d'],
                                         mutual_model_params_dict['n_states'], easy_mode=True,
@@ -590,13 +590,23 @@ class TestGibbsExperiment(TestCase):
         print(res)
         print("pass")
 
+    #region private
+
+    def update_non_ignorable_if_nedded(self, params_dict, pome_results):
+        if params_dict['p_prob_of_observation'] != 'SD' :
+            return params_dict
+
+        states = pome_results['state_to_distrbution_param_mapping'].keys()
+        omitt_probs = np.random.uniform(0.3,0.7,len(states))
+
+        new_param = {k:v for k,v in zip (states,omitt_probs)}
+        params_dict['p_prob_of_observation'] = new_param
+
+        return params_dict
 
 
 
-
-
-
-
+    #endregion
 
 
 

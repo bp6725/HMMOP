@@ -113,6 +113,86 @@ class GibbsSampler() :
                 pbar.update(1)
         return all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions
 
+    def sample_nonignorable_op(self, all_relvent_observations, omitting_probs, start_probs,
+               known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
+        N = self.N if N is None else N
+        states = list(set(list(start_probs.keys()) + ['start', 'end']))
+        state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues, sigmas,
+                                                                                                     states)
+
+        #TODO: do we need to chane this for ignorable problem ?!
+        priors = self._calc_distributions_prior(all_relvent_observations, (len(states) - 2)) if not known_mues else None
+        curr_mus = self.build_initial_mus(sigmas, priors, known_mues)
+        curr_trans = self.build_initial_transitions(states)
+
+        if type(N) is list:
+            curr_w = [sorted(np.random.choice(range(max(_N, len(obs))), len(obs), replace=False)) for obs, _N in
+                      zip(all_relvent_observations, N)]
+        else:
+            curr_w = [sorted(np.random.choice(range(max(N, len(obs))), len(obs), replace=False)) for obs in
+                      all_relvent_observations]
+
+        state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping,
+                                                                               curr_mus)
+        curr_walk, alpha = self.sample_walk_from_params(all_relvent_observations, N, state_to_distrbution_param_mapping,
+                                                        start_probs,
+                                                        curr_w, curr_trans, omitting_probs = omitting_probs)
+
+        sampled_states, observations_sum = self._exrect_samples_from_walk(curr_walk, all_relvent_observations, curr_w,
+                                                                          state_to_distrbution_param_mapping,
+                                                                          curr_mus, sigmas)
+        sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
+
+        all_sampled_transitions = [sampled_transitions]
+        all_transitions = [curr_trans]
+        all_states = [curr_walk]
+        all_observations_sum = [observations_sum]
+        all_mues = [curr_mus]
+        all_ws = [curr_w]
+        with tqdm(total=Ng_iters) as pbar:
+            for i in range(Ng_iters):
+                #TODO: Do we need to chane this because of ignorable ?!
+                curr_mus = self.sample_mus_from_params(sampled_states, observations_sum, priors, sigmas, known_mues)
+                state_to_distrbution_param_mapping = self._update_distributions_params(
+                    state_to_distrbution_param_mapping, curr_mus)
+
+                curr_trans, _ = self.sample_trans_from_params(sampled_transitions, states,
+                                                              curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                           state_to_distrbution_param_mapping],
+                                                              stage_name="transitions" if is_mh else "no_mh",
+                                                              observations=all_relvent_observations)
+                curr_w, _ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
+                                                       state_to_distrbution_param_mapping, N,omitting_probs=omitting_probs,
+                                                       n_iters=w_smapler_n_iter,
+                                                       curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                    state_to_distrbution_param_mapping],
+                                                       stage_name="w" if is_mh else "no_mh",
+                                                       observations=all_relvent_observations)
+                _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
+
+                curr_walk, _ = self.sample_walk_from_params(all_relvent_observations, N,
+                                                            state_to_distrbution_param_mapping, start_probs,
+                                                            curr_w, curr_trans,
+                                                            curr_params=[curr_trans, curr_w, curr_walk, None,
+                                                                         state_to_distrbution_param_mapping],
+                                                            stage_name="walk" if is_mh else "no_mh",
+                                                            observations=all_relvent_observations)
+
+                sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
+                sampled_states, observations_sum = self._exrect_samples_from_walk(curr_walk, all_relvent_observations,
+                                                                                  curr_w,
+                                                                                  state_to_distrbution_param_mapping,
+                                                                                  curr_mus, sigmas)
+
+                all_sampled_transitions.append(sampled_transitions)
+                all_transitions.append(curr_trans)
+                all_states.append(curr_walk)
+                all_observations_sum.append(observations_sum)
+                all_mues.append(curr_mus)
+                all_ws.append(curr_w)
+                pbar.update(1)
+        return all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions
+
     def sample_guess_pc(self, all_relvent_observations, start_probs,
                known_mues,sigmas, Ng_iters, w_smapler_n_iter = 100,PC_guess=None,is_mh = False):
         if PC_guess == "unknown" :
@@ -1196,7 +1276,8 @@ class GibbsSampler() :
 
     @staticmethod
     def _build_emmisions_for_sample(sample, w, state_to_distrbution_param_mapping,N,normalized_emm =  True,
-                                    is_known_emm = False):
+                                    is_known_emm = False, omitting_probs = None):
+        is_nonignorable = omitting_probs is not None
         states = list(state_to_distrbution_param_mapping.keys())
 
         __tmp_param = state_to_distrbution_param_mapping[states[0]]
@@ -1220,10 +1301,14 @@ class GibbsSampler() :
                         _emm = GibbsSampler.__probability_from_dist_params(observation,
                                                                        state_to_distrbution_param_mapping[state],
                                                                        is_transitions_dict)
-
                     else :
                         _emm = 1 if observation is None else int(state_to_distrbution_param_mapping[state] == observation)
                 #if not cyclic case : if the start is out of time is zero
+
+                # Here we correct the emmisions to take ignorable probs into acount if needed !
+                if is_nonignorable :
+                    relevant_prob = omitting_probs[state] if observation is None else (1-omitting_probs[state])
+                    _emm = _emm * relevant_prob
 
                 emmisions[(state, time_ind)] = _emm
                 _sum += _emm
@@ -1447,22 +1532,25 @@ class GibbsSampler() :
 
         return sampled_transitions
 
-    def __prob_obs_for_state(self,state,obs,state_to_distrbution_param_mapping,is_tuple):
+    def __prob_obs_for_state(self,state,obs,state_to_distrbution_param_mapping,is_tuple, is_nonignorable, omitting_probs):
         if is_tuple :
-            return Utils.normpdf(obs,
-                                 state_to_distrbution_param_mapping[state][0],
+            res = Utils.normpdf(obs, state_to_distrbution_param_mapping[state][0],
                                  state_to_distrbution_param_mapping[state][1])
         else :
-            return state_to_distrbution_param_mapping[state][obs] if obs in state_to_distrbution_param_mapping[state] else 0
+            res = state_to_distrbution_param_mapping[state][obs] if obs in state_to_distrbution_param_mapping[state] else 0
 
-    def _extract_relevent_probs_from_walk(self, traj, walk, state_to_distrbution_param_mapping) :
+        return res * (1-omitting_probs[state]) if is_nonignorable else res
+
+    def _extract_relevent_probs_from_walk(self, traj, walk, state_to_distrbution_param_mapping, omitting_probs) :
         is_tuple = type(next(iter(state_to_distrbution_param_mapping.values()))) is tuple
-        y_from_x_probs = {(obs,state): self.__prob_obs_for_state(walk[state],traj[obs],state_to_distrbution_param_mapping,is_tuple) for
+        is_nonignorable = omitting_probs is not None
+        y_from_x_probs = {(obs,state): self.__prob_obs_for_state(walk[state],traj[obs],state_to_distrbution_param_mapping,
+                                                                 is_tuple,is_nonignorable,omitting_probs) for
                           obs,state in itertools.product(range(len(traj)), range(len(walk))) }
 
         return y_from_x_probs
 
-    def _sample_ws_from_params(self,state_to_distrbution_param_mapping,n_iters,N,sample_data) :
+    def _sample_ws_from_params(self,state_to_distrbution_param_mapping,n_iters,N, omitting_probs, sample_data) :
         if type(N) is list :
             traj, _curr_walk,_N = sample_data
             seq_length = max(_N, len(traj))
@@ -1473,19 +1561,20 @@ class GibbsSampler() :
         if len(traj) == len(_curr_walk) :
             return list(range(len(traj)))
 
-        y_from_x_probs = self._extract_relevent_probs_from_walk(traj, _curr_walk, state_to_distrbution_param_mapping)
+        y_from_x_probs = self._extract_relevent_probs_from_walk(traj, _curr_walk, state_to_distrbution_param_mapping, omitting_probs)
 
         _simulted_w = self.sample_msf_using_sim(len(traj), seq_length, n_iters, y_from_x_probs)
         return _simulted_w
 
     @Utils.update_based_on_alpha
-    def sample_ws_from_params(self,sampled_trajs, curr_walk,state_to_distrbution_param_mapping,N, n_iters=10):
+    def sample_ws_from_params(self,sampled_trajs, curr_walk,state_to_distrbution_param_mapping,N, n_iters=10,
+                              omitting_probs=None):
         if type(N) is list :
             samples_data = [(sampled_trajs[i],curr_walk[i],N[i]) for i in  range(len(sampled_trajs))]
         else :
             samples_data = zip(sampled_trajs, curr_walk)
 
-        _partial_sample_ws_from_params = partial(self._sample_ws_from_params,state_to_distrbution_param_mapping,n_iters,N)
+        _partial_sample_ws_from_params = partial(self._sample_ws_from_params,state_to_distrbution_param_mapping,n_iters,N,omitting_probs)
 
         if self.multi_process :
             with Pool(base_config.n_cores) as p :
@@ -1510,7 +1599,8 @@ class GibbsSampler() :
                                   start_prob, flat_trans_prob_n_steps, emmisions, seq_length,n_steps=_ds)
         return posterior
 
-    def _sample_walk_from_params(self, N, state_to_distrbution_param_mapping,start_prob,  curr_trans,samples_data):
+    def _sample_walk_from_params(self, N, state_to_distrbution_param_mapping,start_prob, curr_trans, omitting_probs,
+                                 samples_data):
         if type(N) is list :
             if type(N[0]) is list:
                 return self.sample_walk_from_param_n_step_trans( state_to_distrbution_param_mapping,start_prob,
@@ -1524,7 +1614,8 @@ class GibbsSampler() :
             seq_length = max(len(sample), N)
 
         emmisions = GibbsSampler._build_emmisions_for_sample( sample,
-                                                     _curr_ws, state_to_distrbution_param_mapping, seq_length)
+                                                     _curr_ws, state_to_distrbution_param_mapping, seq_length,
+                                                              omitting_probs = omitting_probs)
 
         flat_trans_prob = {(_f, _t): self._sample_trans_matrix(curr_trans, _f, _t) for _f, _t in
                            itertools.product(curr_trans.keys(), curr_trans.keys())}
@@ -1534,7 +1625,7 @@ class GibbsSampler() :
 
     @Utils.update_based_on_alpha
     def sample_walk_from_params(self, sampled_trajs,N, state_to_distrbution_param_mapping,
-                                start_prob, curr_ws, curr_trans):
+                                start_prob, curr_ws, curr_trans, omitting_probs = None ):
         curr_ws = curr_ws if (not curr_ws is None) else [list(range(len(o))) for o in sampled_trajs]
         if type(N) is list :
             samples_data = [(sampled_trajs[i], curr_ws[i],N[i]) for i in range(len(sampled_trajs))]
@@ -1542,7 +1633,7 @@ class GibbsSampler() :
             samples_data = list(zip(sampled_trajs , curr_ws))
 
         _partial_sample_walk_from_params = partial(self._sample_walk_from_params, N,
-                                                   state_to_distrbution_param_mapping,start_prob,  curr_trans)
+                                                   state_to_distrbution_param_mapping,start_prob, curr_trans, omitting_probs)
         if self.multi_process :
             with Pool(base_config.n_cores) as p:
                 walks = p.map(_partial_sample_walk_from_params, samples_data)
@@ -1752,7 +1843,6 @@ class GibbsSampler() :
         for _state,_dist in state_to_distrbution_mapping.items() :
             states_count_matrix[_state] = dists_count[_dist]
             observations_sum_matrix[_state] = dists_sum[_dist]
-
 
         return states_count_matrix,observations_sum_matrix
 

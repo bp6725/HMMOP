@@ -149,7 +149,26 @@ class Simulator_for_Gibbs():
         return all_relvent_observations, all_ws
 
     @staticmethod
-    def  sample_traj_for_few_obs(p_params,all_full_sampled_trajs):
+    def bernoulli_non_ignorable_OP(omitting_probs_per_state, all_full_sampled_trajs, all_full_sampled_trajs_states):
+        def is_observed(state, omitting_probs_per_state):
+            omitt_prob = omitting_probs_per_state[state]
+            return np.random.rand() > omitt_prob # probability of 'omitt_prob' to be False
+
+        all_relvent_observations_and_ws = []
+        for vec,vec_states in zip(all_full_sampled_trajs, all_full_sampled_trajs_states):
+            ws = [k for k,state in enumerate(vec_states) if is_observed(state, omitting_probs_per_state)]
+            obs = [vec[k] for k in ws]
+
+            all_relvent_observations_and_ws.append((obs, ws))
+
+        all_relvent_observations = [ro[0] for ro in all_relvent_observations_and_ws]
+        all_ws = [ro[1] for ro in all_relvent_observations_and_ws]
+
+        return all_relvent_observations, all_ws
+
+
+    @staticmethod
+    def  sample_traj_for_few_obs(p_params,all_full_sampled_trajs,all_full_sampled_trajs_states = None):
         if ((type(p_params) is float) or (type(p_params) is int)):
             p_prob_of_observation = p_params
             return Simulator_for_Gibbs.bernoulli_experiments(p_prob_of_observation,all_full_sampled_trajs)
@@ -165,6 +184,11 @@ class Simulator_for_Gibbs():
         if len(p_params) == 4 :
             pp,pq,qp,qq  = p_params
             return Simulator_for_Gibbs.bernoulli_experiments_pc_mm(pp,pq,qp,qq,all_full_sampled_trajs)
+
+        if type(p_params) == dict :
+            omitting_probs_per_state = p_params
+            return Simulator_for_Gibbs.bernoulli_non_ignorable_OP(omitting_probs_per_state, all_full_sampled_trajs,
+                                                           all_full_sampled_trajs_states)
 
 
     @Infras.storage_cache
@@ -188,15 +212,20 @@ class Simulator_for_Gibbs():
                 all_full_sampled_trajs = all_full_sampled_trajs_max_len[:number_of_smapled_traj]
                 all_full_sampled_trajs_states = all_full_sampled_trajs_states_max_len[:number_of_smapled_traj]
         else :
-            all_full_sampled_trajs,all_full_sampled_trajs_states = self._sample_N_traj_from_pome_model(pome_model,
+            all_full_sampled_trajs, all_full_sampled_trajs_states = self._sample_N_traj_from_pome_model(pome_model,
                                                                                                        number_of_smapled_traj,N)
-        mutual_model_params_dict['non_cons_sim'] = mutual_model_params_dict['non_cons_sim'] if 'non_cons_sim'  in mutual_model_params_dict.keys() else False
-        if not mutual_model_params_dict['non_cons_sim']   :
-            all_relvent_observations,all_ws = Simulator_for_Gibbs.sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs)
+
+        mutual_model_params_dict['non_cons_sim'] = mutual_model_params_dict['non_cons_sim'] if \
+            'non_cons_sim'  in mutual_model_params_dict.keys() else False
+
+        if not mutual_model_params_dict['non_cons_sim']:
+            all_relvent_observations,all_ws = Simulator_for_Gibbs.sample_traj_for_few_obs(p_prob_of_observation,all_full_sampled_trajs,
+                                                                                          all_full_sampled_trajs_states)
         else :
             _idx_to_smaple = [np.cumsum(np.random.randint(2,4,N)) for i in range(len(all_full_sampled_trajs))]
             all_relvent_observations = [[traj[w] for w in ws if w < len(traj)] for traj,ws in zip(all_full_sampled_trajs,_idx_to_smaple)]
             all_ws = [[w for w in ws if w < len(traj)] for traj,ws in zip(all_full_sampled_trajs,_idx_to_smaple)]
+
         all_relvent_sampled_trajs_states = list(map(lambda x: [x[0][i] for i in x[1]], zip(all_full_sampled_trajs_states, all_ws)))
         self.known_Ws = all_ws
 
@@ -474,7 +503,8 @@ class Simulator_for_Gibbs():
 
     def return_model_parameters(self,N, d, mues,sigmas,inner_outer_trans_probs_ratio,
                                                                 is_bipartite,mutual_model_params_dict):
-        is_known_dataset = mutual_model_params_dict["known_dataset"] != -1 if "known_dataset" in mutual_model_params_dict.keys() else False
+        is_known_dataset = mutual_model_params_dict["known_dataset"] != -1 if\
+            "known_dataset" in mutual_model_params_dict.keys() else False
 
         if is_known_dataset :
             return self.build_known_model(mutual_model_params_dict["known_dataset"])
