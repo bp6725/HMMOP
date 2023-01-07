@@ -3,6 +3,7 @@ import numpy as np
 import itertools
 from who_cell.Infras import Infras
 from who_cell.simulation.known_transition_matrices import KnownTransition_matrices
+from who_cell.omitting_probs_dict import omitting_probs_dict
 import random
 
 class Simulator_for_Gibbs():
@@ -185,10 +186,10 @@ class Simulator_for_Gibbs():
             pp,pq,qp,qq  = p_params
             return Simulator_for_Gibbs.bernoulli_experiments_pc_mm(pp,pq,qp,qq,all_full_sampled_trajs)
 
-        if type(p_params) == dict :
+        if type(p_params) ==  omitting_probs_dict:
             omitting_probs_per_state = p_params
-            return Simulator_for_Gibbs.bernoulli_non_ignorable_OP(omitting_probs_per_state, all_full_sampled_trajs,
-                                                           all_full_sampled_trajs_states)
+            return Simulator_for_Gibbs.bernoulli_non_ignorable_OP(omitting_probs_per_state.latent_omitiing_probs,
+                                                                  all_full_sampled_trajs, all_full_sampled_trajs_states)
 
 
     @Infras.storage_cache

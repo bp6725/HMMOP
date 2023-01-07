@@ -1,3 +1,3 @@
 
 
-n_cores = 20
+n_cores = 4

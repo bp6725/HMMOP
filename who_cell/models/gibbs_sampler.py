@@ -23,7 +23,7 @@ from collections import Counter
 from who_cell.simulation.simulation_for_gibbs import Simulator_for_Gibbs
 
 class GibbsSampler() :
-    def __init__(self,length_of_chain,number_of_states_in_time = None,
+    def __init__(self,length_of_chain, number_of_states_in_time = None,
                  transition_sampling_profile = 'all', multi_process = True):
         self.N = length_of_chain
 
@@ -34,9 +34,7 @@ class GibbsSampler() :
     # region Public
 
     def sample(self, all_relvent_observations, start_probs,
-               known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
-        # (all_relvent_observations,known_states) = all_relvent_observations
-
+               known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False,omitting_probs = None):
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues, sigmas,
@@ -55,9 +53,11 @@ class GibbsSampler() :
 
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping,
                                                                                curr_mus)
+
+        omitting_probs = self.sample_omitting_probs(omitting_probs)
         curr_walk, alpha = self.sample_walk_from_params(all_relvent_observations, N, state_to_distrbution_param_mapping,
                                                         start_probs,
-                                                        curr_w, curr_trans)
+                                                        curr_w, curr_trans, omitting_probs = omitting_probs)
 
         sampled_states, observations_sum = self._exrect_samples_from_walk(curr_walk, all_relvent_observations, curr_w,
                                                                           state_to_distrbution_param_mapping,
@@ -70,6 +70,7 @@ class GibbsSampler() :
         all_observations_sum = [observations_sum]
         all_mues = [curr_mus]
         all_ws = [curr_w]
+        all_omitting_probs = [copy.copy(omitting_probs)]
         with tqdm(total=Ng_iters) as pbar:
             for i in range(Ng_iters):
                 curr_mus = self.sample_mus_from_params(sampled_states, observations_sum, priors, sigmas, known_mues)
@@ -83,7 +84,7 @@ class GibbsSampler() :
                                                               observations=all_relvent_observations)
                 curr_w, _ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
                                                        state_to_distrbution_param_mapping, N,
-                                                       n_iters=w_smapler_n_iter,
+                                                       n_iters=w_smapler_n_iter, omitting_probs = omitting_probs,
                                                        curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                     state_to_distrbution_param_mapping],
                                                        stage_name="w" if is_mh else "no_mh",
@@ -92,11 +93,13 @@ class GibbsSampler() :
 
                 curr_walk, _ = self.sample_walk_from_params(all_relvent_observations, N,
                                                             state_to_distrbution_param_mapping, start_probs,
-                                                            curr_w, curr_trans,
+                                                            curr_w, curr_trans, omitting_probs = omitting_probs,
                                                             curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                          state_to_distrbution_param_mapping],
                                                             stage_name="walk" if is_mh else "no_mh",
                                                             observations=all_relvent_observations)
+
+                omitting_probs = self.sample_omitting_probs(omitting_probs, curr_walk, curr_w)
 
                 sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
                 sampled_states, observations_sum = self._exrect_samples_from_walk(curr_walk, all_relvent_observations,
@@ -110,8 +113,9 @@ class GibbsSampler() :
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
                 all_ws.append(curr_w)
+                all_omitting_probs.append(copy.copy(omitting_probs))
                 pbar.update(1)
-        return all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions
+        return all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions,all_omitting_probs
 
     def sample_nonignorable_op(self, all_relvent_observations, omitting_probs, start_probs,
                known_mues, sigmas, Ng_iters, w_smapler_n_iter=100, N=None, is_mh=False):
@@ -135,8 +139,7 @@ class GibbsSampler() :
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping,
                                                                                curr_mus)
         curr_walk, alpha = self.sample_walk_from_params(all_relvent_observations, N, state_to_distrbution_param_mapping,
-                                                        start_probs,
-                                                        curr_w, curr_trans, omitting_probs = omitting_probs)
+                                                        start_probs, curr_w, curr_trans, omitting_probs= omitting_probs)
 
         sampled_states, observations_sum = self._exrect_samples_from_walk(curr_walk, all_relvent_observations, curr_w,
                                                                           state_to_distrbution_param_mapping,
@@ -162,7 +165,8 @@ class GibbsSampler() :
                                                               stage_name="transitions" if is_mh else "no_mh",
                                                               observations=all_relvent_observations)
                 curr_w, _ = self.sample_ws_from_params(all_relvent_observations, curr_walk,
-                                                       state_to_distrbution_param_mapping, N,omitting_probs=omitting_probs,
+                                                       state_to_distrbution_param_mapping, N,
+                                                       omitting_probs=omitting_probs,
                                                        n_iters=w_smapler_n_iter,
                                                        curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                     state_to_distrbution_param_mapping],
@@ -172,7 +176,7 @@ class GibbsSampler() :
 
                 curr_walk, _ = self.sample_walk_from_params(all_relvent_observations, N,
                                                             state_to_distrbution_param_mapping, start_probs,
-                                                            curr_w, curr_trans,
+                                                            curr_w, curr_trans, omitting_probs = omitting_probs,
                                                             curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                          state_to_distrbution_param_mapping],
                                                             stage_name="walk" if is_mh else "no_mh",
@@ -237,7 +241,7 @@ class GibbsSampler() :
         return full_likelihod
 
     def sample_known_W(self, all_relvent_observations, start_probs,
-               known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False):
+               known_mues,sigmas, Ng_iters,curr_w, w_smapler_n_iter = 100,N=None,is_mh = False, omitting_probs = None):
         print("start known W")
         N = self.N if N is None else N
 
@@ -250,9 +254,10 @@ class GibbsSampler() :
         curr_mus = self.build_initial_mus(sigmas,priors,known_mues)
         curr_trans = self.build_initial_transitions(states)
 
+        omitting_probs = self.sample_omitting_probs(omitting_probs)
         state_to_distrbution_param_mapping = self._update_distributions_params(state_to_distrbution_param_mapping, curr_mus)
         curr_walk,alpha= self.sample_walk_from_params(all_relvent_observations,N, state_to_distrbution_param_mapping,start_probs,
-                                                 curr_w, curr_trans)
+                                                 curr_w, curr_trans, omitting_probs = omitting_probs)
 
         sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,curr_w,
                                                                          state_to_distrbution_param_mapping,
@@ -265,6 +270,7 @@ class GibbsSampler() :
         all_observations_sum = [observations_sum]
         all_mues = [curr_mus]
         all_ws = [curr_w]
+        all_omitting_probs = [copy.copy(omitting_probs)]
         with tqdm(total=Ng_iters) as pbar:
             for i in range(Ng_iters):
                 curr_mus = self.sample_mus_from_params(sampled_states, observations_sum,priors, sigmas,known_mues)
@@ -278,12 +284,13 @@ class GibbsSampler() :
 
                 curr_walk,_ = self.sample_walk_from_params(all_relvent_observations,N,
                                                          state_to_distrbution_param_mapping,start_probs,
-                                                         curr_w, curr_trans,
+                                                         curr_w, curr_trans, omitting_probs = omitting_probs,
                                                            curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                       state_to_distrbution_param_mapping],
                                                          stage_name="walk"  if is_mh else "no_mh",
                                                          observations=all_relvent_observations)
 
+                omitting_probs = self.sample_omitting_probs(omitting_probs, curr_walk, curr_w)
 
                 sampled_transitions = self._exrect_transitions_from_walk(curr_walk,states,curr_w)
                 sampled_states,observations_sum = self._exrect_samples_from_walk(curr_walk,all_relvent_observations,
@@ -296,11 +303,12 @@ class GibbsSampler() :
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
                 all_ws.append(curr_w)
+                all_omitting_probs.append(copy.copy(omitting_probs))
                 pbar.update(1)
-        return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions
+        return all_states,all_observations_sum, all_sampled_transitions,all_mues,all_ws,all_transitions, all_omitting_probs
 
     def sample_known_emissions(self, all_relvent_observations, start_probs,
-                               emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True):
+                               emissions_table, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True, omitting_probs = None):
         # (all_relvent_observations, known_states) = all_relvent_observations
         emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
         N = self.N if N is None else N
@@ -317,7 +325,7 @@ class GibbsSampler() :
 
         curr_walk,alpha = self.sample_walk_from_params(all_relvent_observations, N,
                                                  emissions_table, start_probs,
-                                                 curr_w, curr_trans)
+                                                 curr_w, curr_trans, omitting_probs = omitting_probs)
         _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
         sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
@@ -327,6 +335,7 @@ class GibbsSampler() :
         all_transitions = [curr_trans]
         all_ws = [curr_w]
         all_states_picked_by_w = [_states_picked_by_w]
+        all_omitting_probs = [copy.copy(omitting_probs)]
         with tqdm(total=Ng_iters) as pbar:
             for i in range(Ng_iters):
                 curr_trans,alpha0 = self.sample_trans_from_params(sampled_transitions, states,
@@ -334,7 +343,7 @@ class GibbsSampler() :
                                                            stage_name="transitions"  if is_mh else "no_mh",
                                                            observations = all_relvent_observations)
                 curr_w,alpha1 = self.sample_ws_from_params(all_relvent_observations, curr_walk,emissions_table, N,
-                                                     n_iters=w_smapler_n_iter,
+                                                     n_iters=w_smapler_n_iter, omitting_probs = omitting_probs,
                                                     curr_params=[curr_trans, curr_w, curr_walk, None, emissions_table],
                                                     stage_name="w"  if is_mh else "no_mh",
                                                     observations=all_relvent_observations)
@@ -342,7 +351,7 @@ class GibbsSampler() :
 
                 curr_walk,alpha2 = self.sample_walk_from_params(all_relvent_observations, N,
                                                          emissions_table, start_probs,
-                                                         curr_w, curr_trans,
+                                                         curr_w, curr_trans, omitting_probs = omitting_probs,
                                                          curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                       emissions_table],
                                                          stage_name="walk"  if is_mh else "no_mh",
@@ -355,6 +364,7 @@ class GibbsSampler() :
                 all_transitions.append(curr_trans)
                 all_states_picked_by_w.append(_states_picked_by_w)
                 all_ws.append(curr_w)
+                all_omitting_probs.append(copy.copy(omitting_probs))
                 pbar.update(1)
         return  all_sampled_transitions, all_ws, all_transitions,all_states_picked_by_w,all_alphas
 
@@ -412,7 +422,7 @@ class GibbsSampler() :
         return None, None, all_sampled_transitions, None, all_ws, all_transitions
 
     def sample_known_emissions_known_W(self, all_relvent_observations, start_probs,
-                               emissions_table,curr_w, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True):
+                               emissions_table,curr_w, Ng_iters, w_smapler_n_iter = 100,N = None,is_mh = True, omitting_probs = None):
         emissions_table = self.impute_emissions_table_with_zeros(emissions_table,all_relvent_observations)
         N = self.N if N is None else N
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
@@ -421,7 +431,7 @@ class GibbsSampler() :
 
         curr_walk,alpha = self.sample_walk_from_params(all_relvent_observations, N,
                                                  emissions_table, start_probs,
-                                                 curr_w, curr_trans)
+                                                 curr_w, curr_trans, omitting_probs = omitting_probs)
         _states_picked_by_w = [[seq[i] for i in ws] for ws, seq in zip(curr_w, curr_walk)]
 
         sampled_transitions = self._exrect_transitions_from_walk(curr_walk, states, curr_w)
@@ -429,6 +439,7 @@ class GibbsSampler() :
         all_sampled_transitions = [sampled_transitions]
         all_transitions = [curr_trans]
         all_states_picked_by_w = [_states_picked_by_w]
+        all_omitting_probs = [copy.copy(omitting_probs)]
         with tqdm(total=Ng_iters) as pbar:
             for i in range(Ng_iters):
                 curr_trans,alpha0 = self.sample_trans_from_params(sampled_transitions, states,
@@ -439,7 +450,7 @@ class GibbsSampler() :
 
                 curr_walk,alpha2 = self.sample_walk_from_params(all_relvent_observations, N,
                                                          emissions_table, start_probs,
-                                                         curr_w, curr_trans,
+                                                         curr_w, curr_trans, omitting_probs = omitting_probs,
                                                          curr_params=[curr_trans, curr_w, curr_walk, None,
                                                                       emissions_table],
                                                          stage_name="walk"  if is_mh else "no_mh",
@@ -450,8 +461,9 @@ class GibbsSampler() :
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
                 all_states_picked_by_w.append(_states_picked_by_w)
+                all_omitting_probs.append(copy.copy(omitting_probs))
                 pbar.update(1)
-        return  all_sampled_transitions, None, all_transitions,all_states_picked_by_w ,None
+        return  all_sampled_transitions, None, all_transitions,all_states_picked_by_w ,None,all_omitting_probs
 
     def reconstruction_using_pomegranate(self,all_relvent_observations,state_to_distrbution_param_mapping,known_w=None):
         simulator = Simulator_for_Gibbs(None,None,1)
@@ -604,6 +616,8 @@ class GibbsSampler() :
 
     def _new_sample_guess_pc(self, all_relvent_observations, start_probs,
                         known_mues, sigmas, Ng_iters, PC_guess):
+        omitting_probs = PC_guess if isinstance(PC_guess,dict) else None
+
         #states mues initial
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
         state_to_distrbution_param_mapping = self.__build_initial_state_to_distrbution_param_mapping(known_mues, sigmas,
@@ -617,12 +631,13 @@ class GibbsSampler() :
         curr_trans = self._build_initial_transitions_from_naive(all_relvent_observations, start_probs,
                         known_mues, sigmas)
 
+        omitting_probs = self.sample_omitting_probs(omitting_probs)
+
         #sample first walk - as naive. the length of X is as Obs
         N = [len(O) for O in all_relvent_observations]
         const_w = [list(range(len(O))) for O in all_relvent_observations]
         X_walk, _ = self.sample_walk_from_params(all_relvent_observations, N, state_to_distrbution_param_mapping,
-                                                        start_probs,
-                                                        const_w, curr_trans)
+                                                        start_probs, const_w, curr_trans, omitting_probs=omitting_probs)
 
         sampled_states, observations_sum = self._exrect_samples_from_walk(X_walk, all_relvent_observations, const_w,
                                                                           state_to_distrbution_param_mapping,
@@ -637,6 +652,7 @@ class GibbsSampler() :
         all_observations_sum = [observations_sum]
         all_mues = [curr_mus]
         all_ws = [const_w]
+        all_omitting_probs = [copy.copy(omitting_probs)]
         with tqdm(total=Ng_iters) as pbar:
             for i in range(Ng_iters):
                 curr_mus = self.sample_mus_from_params(sampled_states, observations_sum, priors, sigmas, known_mues)
@@ -645,10 +661,10 @@ class GibbsSampler() :
 
                 if self.transition_sampling_profile == "all" :
                     # sample transitions from the adj W and N - first we Sample long walk and then calculate
-                    for_T_walk, _ = self.sample_walk_from_params(all_relvent_observations, N_adj,
+                    long_walk, _ = self.sample_walk_from_params(all_relvent_observations, N_adj,
                                                                 state_to_distrbution_param_mapping, start_probs,
-                                                                w_adj, curr_trans)
-                    sampled_transitions = self._exrect_transitions_from_walk(for_T_walk, states, const_w)
+                                                                w_adj, curr_trans, omitting_probs=omitting_probs)
+                    sampled_transitions = self._exrect_transitions_from_walk(long_walk, states, const_w)
                 else :
                     sampled_transitions = self._smaple_transitions_from_d_1(X_walk, d_lists, states)
                 curr_trans, _ = self.sample_trans_from_params(sampled_transitions, states)
@@ -657,9 +673,15 @@ class GibbsSampler() :
                 #sample current X walk from d lists
                 X_walk, _ = self.sample_walk_from_params(all_relvent_observations, d_lists,
                                                             state_to_distrbution_param_mapping, start_probs,
-                                                            None, n_steps_trans)
+                                                            None, n_steps_trans,omitting_probs)
 
                 w_adj, N_adj,d_lists = self.build_N_list(X_walk, const_w, curr_trans, PC_guess,return_d = True)
+
+                #We need to have the *full* X to inffer the omitting probs - this is why we use *long_walk*
+                long_walk, _ = self.sample_walk_from_params(all_relvent_observations, N_adj,
+                                                             state_to_distrbution_param_mapping, start_probs,
+                                                             w_adj, curr_trans, omitting_probs=omitting_probs)
+                omitting_probs = self.sample_omitting_probs(omitting_probs, long_walk, w_adj)
 
                 sampled_states, observations_sum = self._exrect_samples_from_walk(X_walk, all_relvent_observations,
                                                                                   const_w,
@@ -672,11 +694,14 @@ class GibbsSampler() :
                 all_observations_sum.append(observations_sum)
                 all_mues.append(curr_mus)
                 all_ws.append(d_lists)
+                all_omitting_probs.append(copy.copy(omitting_probs))
                 pbar.update(1)
-        return all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions
+        return all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions,all_omitting_probs
 
     def _new_sample_known_emissions_with_pc_guess(self,all_relvent_observations, start_probs,emissions_table,
                Ng_iters, w_smapler_n_iter = 100,PC_guess=None,is_mh = False):
+        omitting_probs = PC_guess if isinstance(PC_guess, dict) else None
+
         #states mues initial
         states = list(set(list(start_probs.keys()) + ['start', 'end']))
 
@@ -684,12 +709,13 @@ class GibbsSampler() :
         curr_trans = self._build_initial_transitions_from_naive(all_relvent_observations, start_probs,
                         emissions_table, None)
 
+        omitting_probs = self.sample_omitting_probs(omitting_probs)
+
         #sample first walk - as naive. the length of X is as Obs
         N = [len(O) for O in all_relvent_observations]
         const_w = [list(range(len(O))) for O in all_relvent_observations]
         X_walk, _ = self.sample_walk_from_params(all_relvent_observations, N, emissions_table,
-                                                        start_probs,
-                                                        const_w, curr_trans)
+                                                 start_probs, const_w, curr_trans, omitting_probs=omitting_probs)
 
         #sample D
         w_adj, N_adj,d_lists = self.build_N_list(X_walk, const_w, curr_trans, PC_guess,return_d = True)
@@ -715,9 +741,10 @@ class GibbsSampler() :
                 #sample current X walk from d lists
                 X_walk, _ = self.sample_walk_from_params(all_relvent_observations, d_lists,
                                                             emissions_table, start_probs,
-                                                            None, n_steps_trans)
+                                                            None, n_steps_trans, omitting_probs=omitting_probs)
 
                 w_adj, N_adj,d_lists = self.build_N_list(X_walk, const_w, curr_trans, PC_guess,return_d = True)
+                omitting_probs = self.sample_omitting_probs(omitting_probs, for_T_walk, w_adj)
 
                 all_sampled_transitions.append(sampled_transitions)
                 all_transitions.append(curr_trans)
@@ -831,13 +858,46 @@ class GibbsSampler() :
     def _build_initial_transitions_from_naive(self,all_relvent_observations, start_probs,
                                           known_mues, sigmas) :
         if not (sigmas is None):
-            _, _, _, _, _, all_transitions = self.sample(all_relvent_observations, start_probs,
+            _, _, _, _, _, all_transitions,_ = self.sample(all_relvent_observations, start_probs,
             known_mues, sigmas, Ng_iters = 10, w_smapler_n_iter = 1, N = 2, is_mh = False)
         else :
             _, _, all_transitions,_,_ = self.sample_known_emissions(all_relvent_observations, start_probs,
                                        known_mues, Ng_iters= 10, w_smapler_n_iter=-1, N=2, is_mh=False)
 
         return all_transitions[-1]
+
+    def sample_omitting_probs(self, omitting_probs, X = None, W = None):
+        if omitting_probs is None :
+            return omitting_probs
+
+        unknown_omittings = omitting_probs.unknown_omittings.copy()
+
+        if (X is None) and (W is None) :
+            for s in unknown_omittings :
+                omitting_probs[s] = np.random.rand()
+            return omitting_probs
+
+        if list(map(len,X)) == list(map(len,W)) : raise Exception('Maybe we didnt send X long ?! haa ?! do we ?!')
+
+        # now we calculate the probability of omitting each state
+        states_seen_unseen = {s : {"seen" : 0,"unseen" : 0} for s in unknown_omittings}
+        for states_seq, ws in zip(X,W) :
+            for t,state in enumerate(states_seq):
+                if state not in unknown_omittings : continue
+                if t in ws :
+                    states_seen_unseen[state]['seen'] += 1
+                else :
+                    states_seen_unseen[state]['unseen'] += 1
+
+        # Now we sample and update
+        # The conjugate prior of the binomial distribution is the beta distribution
+        for s in unknown_omittings :
+            s_seen, s_unseen = states_seen_unseen[s]["seen"], states_seen_unseen[s]["unseen"]
+            if (s_seen + s_unseen) == 0 : continue
+
+            s_beta = np.random.beta(1 + s_seen,1 + s_unseen,1)#TODO : Do we keep 1+ seen/unseen ?!
+            omitting_probs[s] = s_beta[0]
+        return omitting_probs
 
     def build_N_list(self,walks,W,transitions_dict,N_factor,n_steps_transitions = None,return_d = False):
         if n_steps_transitions is None :
@@ -898,32 +958,63 @@ class GibbsSampler() :
             if val : return (i+1)
 
     def _sample_N_window(self,from_state,to_state,n_steps_transitions,N_factor):
+        if isinstance(N_factor,dict) :
+            return self.nonignorable_sample_window(from_state,to_state,n_steps_transitions,N_factor)
+        else :
+            return self.ignorable_sample_window(from_state,to_state,n_steps_transitions,N_factor)
+
+    def ignorable_sample_window(self,from_state,to_state,n_steps_transitions,N_factor):
         prob_function = lambda n : n_steps_transitions[n][from_state][to_state]*(N_factor)*((1-N_factor)**(n-1))
 
         probs = np.array(list(map(prob_function,range(1,len(n_steps_transitions[1])))))
         norm_probs = probs/probs.sum()
 
-        return np.random.choice(list(range(1,len(norm_probs) + 1 )),p=norm_probs)
+        return np.random.choice(list(range(1,len(norm_probs) + 1 )),p = norm_probs)
+
+    def nonignorable_sample_window(self, from_state,to_state,n_steps_transitions,N_factor) :
+        probs = self.fwd_sample_d(from_state,to_state, n_steps_transitions[1], N_factor, max_d=100)
+
+        ds= list(probs.keys())
+        __sum_probs = np.sum(list(probs.values()))
+        norm_probs = [ p / __sum_probs for p in probs.values()]
+
+        return np.random.choice(ds, p=norm_probs)
 
     def _calculate_last_time_from_state(self,N_factor):
-        prob_function = lambda n: (N_factor) * ((1 - N_factor) ** (n - 1))
+        #TODO: finish this function
+        _N_factor = np.mean(list(N_factor.values())) if isinstance(N_factor,dict) else N_factor
+        prob_function = lambda n: (_N_factor) * ((1 - _N_factor) ** (n - 1))
         probs = np.array(list(map(prob_function, range(1, 100))))
         norm_probs = probs / probs.sum()
 
         return np.random.choice(list(range(1, 100)), p=norm_probs)-1
 
     def _calculate_first_state_time(self,first_obs,n_steps_transitions,N_factor):
-        all_states = n_steps_transitions[1].keys()
+        #TODO: finish this function
+        # all_states = n_steps_transitions[1].keys()
+        #
+        # if isinstance(N_factor,dict) :
+        #     probs_per_N =  self._non_ignorable_calculate_first_state_time()
+        # else :
+        #     probs_per_N = self._ignorable_calculate_first_state_time(first_obs,n_steps_transitions,N_factor)
+        #
 
-        probs_per_pos_state = []
-        for _pos_orig_state in all_states :
-            _probs_pos_state = self.calculate_probs_single_orig(_pos_orig_state,first_obs,n_steps_transitions,N_factor)
-            probs_per_pos_state.append(np.array(_probs_pos_state))
-
-        probs_per_N = reduce(lambda x,y:x+y,probs_per_pos_state)
+        _N_factor = np.mean(list(N_factor.values())) if isinstance(N_factor,dict) else N_factor
+        probs_per_N = self._ignorable_calculate_first_state_time(first_obs,n_steps_transitions,_N_factor)
         if (sum(probs_per_N) == 0):
             return np.random.choice(list(n_steps_transitions.keys())) -1
         return np.random.choice(list(n_steps_transitions.keys()), p=probs_per_N/probs_per_N.sum()) -1
+
+    def _ignorable_calculate_first_state_time(self,first_obs,n_steps_transitions,N_factor):
+        all_states = n_steps_transitions[1].keys()
+
+        probs_per_pos_state = []
+        for _pos_orig_state in all_states:
+            _probs_pos_state = self.calculate_probs_single_orig(_pos_orig_state, first_obs, n_steps_transitions,
+                                                                N_factor)
+            probs_per_pos_state.append(np.array(_probs_pos_state))
+
+        return (reduce(lambda x, y: x + y, probs_per_pos_state))
 
     def calculate_probs_single_orig(self,_pos_orig_state,first_obs,n_steps_transitions,N_factor):
         all_n_steps =[trans_dict[_pos_orig_state][first_obs] for trans_dict in n_steps_transitions.values()]
@@ -1486,6 +1577,125 @@ class GibbsSampler() :
             if sum(f_curr.values()) == 0: return fwd
             f_prev = f_curr
         return fwd
+
+    @staticmethod
+    def fwd_sample_d(X_k, X_k1, trans_matrix, omitting_probs, max_d=100):
+        """Forward algorithm."""
+        states = list(trans_matrix.keys())
+
+        fwd = []
+        prop_pd_per_d = {}  # P(d) up to proportion. no mult in (1-Psi)
+        for d in range(1, max_d):
+            f_unseen_curr = {}
+            p_d = 0
+            for st in states:
+                # We start with the probabites to move from $X_k$ to any state
+                if d == 1:
+                    p_d = trans_matrix[X_k][X_k1]
+                    break
+                elif d == 2:
+                    prob_st = trans_matrix[X_k][st]
+                else:
+                    f_omitting_pre = fwd[-1]
+
+                    # sum over previous states
+                    prob_st = 0
+                    for pre_st in states:
+                        pre_stil_unseen = f_omitting_pre[pre_st]
+                        prob_st += pre_stil_unseen * trans_matrix[pre_st][st]
+
+                        # this is the forward result for st
+                f_unseen_curr[st] = prob_st * omitting_probs[st]
+
+                # sum probabilites to move from st to end state and finish
+                p_d += f_unseen_curr[st] * trans_matrix[st][X_k1]
+
+            prop_pd_per_d[d] = p_d
+
+            fwd.append(f_unseen_curr)
+
+        return prop_pd_per_d
+
+    @staticmethod
+    def fwd_sample_first_d(X_k, start_prob, trans_matrix, omitting_probs, max_d=100):
+        """Forward algorithm."""
+
+        states = list(trans_matrix.keys())
+
+        fwd = []
+        prop_pd_per_d = {}
+        for d in range(max_d):
+            f_unseen_curr = {}
+            p_d = 0
+            for st in states:
+                # We start with the probabites to move from $X_k$ to any state
+                if d == 0:
+                    p_d = start_prob[X_k] * (1 - omitting_probs[X_k])
+                    break
+                elif d == 1:
+                    prob_st = start_prob[st]
+                else:
+                    f_omitting_pre = fwd[-1]
+
+                    # sum over previous states
+                    prob_st = 0
+                    prob_st_now_seen = 0
+                    for pre_st in states:
+                        pre_stil_unseen = f_omitting_pre[pre_st]
+                        trans_prob = trans_matrix[pre_st][st]
+                        prob_st += pre_stil_unseen * trans_prob
+
+                # this is the forward result for st
+                f_unseen_curr[st] = prob_st * (omitting_probs[st])
+
+                # sum probabilites to move from st to end state and finish
+                p_d += f_unseen_curr[st] * trans_matrix[st][X_k] * (1 - omitting_probs[X_k])
+
+            prop_pd_per_d[d] = p_d
+
+            fwd.append(f_unseen_curr)
+
+        return prop_pd_per_d
+
+    @staticmethod
+    def fwd_sample_last_d(X_k1, trans_matrix, omitting_probs, max_d=100):
+        """Forward algorithm."""
+
+        states = list(trans_matrix.keys())
+
+        fwd = []
+        prop_pd_per_d = {}
+        for d in range(max_d):
+            f_unseen_curr = {}
+            p_d = 0
+            for st in states:
+                # We start with the probabites to move from $X_k$ to any state
+                if d == 0:
+                    p_d = 1
+                    break
+                elif d == 1:
+                    prob_st = trans_matrix[X_k1][st]
+                else:
+                    f_omitting_pre = fwd[-1]
+
+                    # sum over previous states
+                    prob_st = 0
+                    for pre_st in states:
+                        pre_stil_unseen = f_omitting_pre[pre_st]
+                        trans_prob = trans_matrix[pre_st][st]
+                        prob_st += pre_stil_unseen * trans_prob
+
+                # this is the forward result for st
+                f_unseen_curr[st] = prob_st * (omitting_probs[st])
+
+                # sum probabilites to move from st to end state and finish
+                p_d += f_unseen_curr[st]
+
+            prop_pd_per_d[d] = p_d
+
+            fwd.append(f_unseen_curr)
+
+        return prop_pd_per_d
 
     def sample_mus_from_params(self,all_sampled_states, sum_relvent_observations, priors,  sigmas,known_mues):
         if known_mues is not None :
