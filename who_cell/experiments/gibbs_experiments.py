@@ -347,17 +347,13 @@ class GibbsExperiment() :
 
         relevent_sampling_method = GibbsExperiment.__sampling_method_from_params(params, use_pomegranate,is_known_W,
                                                                                  is_numerical_reconstruction,is_pc_guess)
-        print(relevent_sampling_method)
+        # print(relevent_sampling_method)
 
-        is_assume_non_ignorable = isinstance(params['p_prob_of_observation'], dict) and (params['assume_nonignorable'])
-        is_learn_missings = params['learn_missing_pc']
-
-        # Fill None with randoms
-        omitting_with_rand_not_none = copy.copy(params['p_prob_of_observation'])
-        omitting_with_rand_not_none.unknown_omittings = []
-        for k, v in omitting_with_rand_not_none.items():
-            _v = (np.random.rand() if (v is None) else v)
-            omitting_with_rand_not_none[k] = _v
+        is_assume_non_ignorable,is_learn_missings,\
+            p_prob_of_observation,omitting_probs = GibbsExperiment._eval_nonig_parmas(params['p_prob_of_observation'],
+                                                                          params['assume_nonignorable'],
+                                                                          params['learn_missing_pc'])
+        print(f"{relevent_sampling_method} ; {(is_assume_non_ignorable, is_learn_missings, p_prob_of_observation, omitting_probs)}")
 
         if relevent_sampling_method == "pomegranate" :
             _transitions = sampler.reconstruction_using_pomegranate(all_relvent_observations,
@@ -370,8 +366,6 @@ class GibbsExperiment() :
             sampled_mues = None
 
         if relevent_sampling_method == "N from outside" :
-            omitting_probs = copy.copy(params['p_prob_of_observation']) if is_learn_missings else omitting_with_rand_not_none
-            omitting_probs = omitting_probs if is_assume_non_ignorable else None
             if not is_known_emmi :
                 all_states, all_observations_sum, all_sampled_transitions, all_mues, all_ws, all_transitions,all_omitting_probs = \
                     sampler.sample(all_relvent_observations, {k:(1/len(pome_results['start_probabilites'])) for k
@@ -380,12 +374,12 @@ class GibbsExperiment() :
                                    w_smapler_n_iter=w_smapler_n_iter,
                                    is_mh=params["is_mh"])
             else :
-                all_sampled_transitions, all_ws, all_transitions, all_states, all_alphas = \
+                all_sampled_transitions, all_ws, all_transitions, all_states, all_alphas,all_omitting_probs = \
                     sampler.sample_known_emissions(all_relvent_observations, pome_results['start_probabilites'],
                                                    {k: v for k, v in
                                                     pome_results['state_to_distrbution_param_mapping'].items() if
                                                     k != 'start'},
-                                                   Ng_iters=params['N_itres'],
+                                                   Ng_iters=params['N_itres'],omitting_probs=omitting_probs,
                                                    w_smapler_n_iter=w_smapler_n_iter, is_mh=params["is_mh"])
 
             sampled_transitions_dict = all_sampled_transitions[-1]
@@ -395,14 +389,7 @@ class GibbsExperiment() :
 
         if relevent_sampling_method == "PC from outside":
             if params["PC_guess"] == 'known' :
-
-                if is_assume_non_ignorable:
-                    if is_learn_missings :
-                        _pc_guess = params['p_prob_of_observation']
-                    else :
-                        _pc_guess = omitting_with_rand_not_none
-                else :
-                    _pc_guess = np.mean(list(omitting_with_rand_not_none.values()))
+                _pc_guess = p_prob_of_observation
             else :
                 _pc_guess = params["PC_guess"]
 
@@ -417,13 +404,13 @@ class GibbsExperiment() :
                 sampled_transitions_dict = all_sampled_transitions[-1]
                 sampled_mues = all_mues[-1]
             else :
-                all_states, all_sampled_transitions, all_ws, all_transitions = \
-                    sampler._new_sample_known_emissions_with_pc_guess(all_relvent_observations, pome_results['start_probabilites'],
-                                                   {k: v for k, v in
+                all_states, all_sampled_transitions, all_ws, all_transitions,all_omitting_probs = \
+                    sampler.sample_known_emissions_with_pc_guess(all_relvent_observations, pome_results['start_probabilites'],
+                                                                 {k: v for k, v in
                                                     pome_results['state_to_distrbution_param_mapping'].items() if
                                                     k != 'start'},
-                                                   Ng_iters=params['N_itres'],
-                                                   w_smapler_n_iter=w_smapler_n_iter,PC_guess=_pc_guess,
+                                                                 Ng_iters=params['N_itres'],
+                                                                 w_smapler_n_iter=w_smapler_n_iter, PC_guess=_pc_guess,
                                                                  is_mh=params["is_mh"])
                 sampled_transitions_dict = all_sampled_transitions[-1]
                 sampled_mues = None
@@ -442,7 +429,7 @@ class GibbsExperiment() :
                                        w_smapler_n_iter=1,
                                        is_mh=params["is_mh"])
             else :
-                all_sampled_transitions, all_ws, all_transitions, all_states, all_alphas = \
+                all_sampled_transitions, all_ws, all_transitions, all_states, all_alphas,all_omitting_probs = \
                     sampler.sample_known_emissions(all_relvent_observations, pome_results['start_probabilites'],
                                                    {k: v for k, v in
                                                     pome_results['state_to_distrbution_param_mapping'].items() if
@@ -472,7 +459,7 @@ class GibbsExperiment() :
                     sampler.sample_known_W(all_relvent_observations,
                                            {k:(1/len(pome_results['start_probabilites'])) for k in pome_results['start_probabilites'].keys()},
                                            mues_for_sampler, sigmas_for_sampler, params['N_itres'], known_w,
-                                           omitting_probs='omitting_probs',
+                                           omitting_probs=omitting_probs,
                                            w_smapler_n_iter=w_smapler_n_iter,
                                            is_mh=params["is_mh"])
                 sampled_transitions_dict = all_sampled_transitions[-1]
@@ -482,7 +469,7 @@ class GibbsExperiment() :
                     sampler.sample_known_emissions_known_W( all_relvent_observations, pome_results['start_probabilites'],
                                                 {k: v for k, v in
                                                  pome_results['state_to_distrbution_param_mapping'].items() if
-                                                 k != 'start'},known_w, params['N_itres'],
+                                                 k != 'start'},known_w, params['N_itres'],omitting_probs=omitting_probs,
                                                 w_smapler_n_iter = w_smapler_n_iter,N = None,is_mh=params["is_mh"])
                 all_observations_sum = None
                 all_mues=None
@@ -504,6 +491,32 @@ class GibbsExperiment() :
                     }
         print("finish")
         return results
+
+    @staticmethod
+    def _eval_nonig_parmas(p_prob_of_observation,assume_nonignorable,is_learn_missings):
+        is_assume_non_ignorable = isinstance(p_prob_of_observation, dict) and assume_nonignorable
+
+        if not isinstance(p_prob_of_observation, dict) :
+            return False, False, p_prob_of_observation, None
+
+        if not is_learn_missings :
+            # Fill None with randoms
+            omitting_with_rand_not_none = copy.copy(p_prob_of_observation)
+            omitting_with_rand_not_none.unknown_omittings = []
+            for k, v in omitting_with_rand_not_none.items():
+                _v = (np.random.rand() if (v is None) else v)
+                omitting_with_rand_not_none[k] = _v
+
+            if is_assume_non_ignorable :
+                _p_prob_of_observation = omitting_with_rand_not_none
+                return is_assume_non_ignorable, is_learn_missings, _p_prob_of_observation, omitting_with_rand_not_none
+            else :
+                _p_prob_of_observation = np.mean(list(omitting_with_rand_not_none.values()))
+                return is_assume_non_ignorable, is_learn_missings, _p_prob_of_observation, None
+        else :
+            return is_assume_non_ignorable, is_learn_missings, p_prob_of_observation, p_prob_of_observation
+
+
 
     @staticmethod
     def _build_defining_model_params(params_dict, model_defining_params_pre):
