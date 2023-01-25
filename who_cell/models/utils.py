@@ -177,3 +177,12 @@ class Utils() :
                 else:
                     all_seq.append([long_seq[i]] + option)
         return all_seq
+
+    @staticmethod
+    def robust_choice(options,probs):
+        pass
+        probs_pos = list(map(lambda x : x if x > 0 else 0 , probs))
+        probs_sum = np.sum(probs_pos)
+
+        robust_probs = probs_pos /  probs_sum
+        return np.random.choice(options,p=robust_probs)

@@ -109,36 +109,34 @@ class TestGibbsExperiment(TestCase):
     def test_run_multi_params_with_unignorableOP(self):
         model_defining_params_pre = ['N', "d", "n_states", 'is_acyclic', 'sigma', 'bipartite', 'known_dataset']
         params_dict = {
-            # "sim_params" :
             'is_acyclic': [True],
             'known_mues': [True],
+            "is_few_observation_model": [True, False],
+            "is_only_seen": ["all"],
             'N': [80],
             'd': [5, 3],
-            "known_dataset": ['POS', -1],
-            "bipartite": [False, True],
+            "bipartite": [False],
             "inner_outer_trans_probs_ratio": [50],
             'n_states': [10],
             'sigma': [0.1],
-            'number_of_smapled_traj': [1000],
-            'p_prob_of_observation': [.5, ("SD", .15, 0.5),("SD", .15)],
-            "exp_name": ["non-ignorable omitting"],
-
-            # "sample_params" :
-            "is_few_observation_model": [True,False],
-            "is_only_seen": ["all"],
-            'N_itres': [1],
+            "known_dataset": [-1],
+            'number_of_smapled_traj': [1500],
+            'p_prob_of_observation': [("SD", 0.01, 0), ("SD", .1, 0), ("SD", .2, 0), ("SD", .3, 0), ("SD", .4, 0),
+                                      ("SD", .5, 0)],
+            "assume_nonignorable": [True, False],
+            "learn_missing_pc": [True],
+            'N_itres': [80],
             'is_mh': [False],
-            'w_smapler_n_iter': [120],
-            'is_known_W': [False,True],
-            "is_multi_process": [False],
-            'PC_guess': ['known'],
-            "assume_nonignorable": [True,False],
-            'learn_missing_pc': [True, False]
+            'w_smapler_n_iter': [500],
+            'is_known_W': [True, False],
+            "is_multi_process": [True],
+            "PC_guess": ['known'],
+            "exp_name": ["Known PC omittings known"]
         }
+        all_models_results_chains = GibbsExperiment.run_multi_params_and_return_results(params_dict,
+                                                                                        model_defining_params_pre,
+                                                                                        skip_sampler=True)
 
-        er = ExperimentReport()
-        all_models_results = GibbsExperiment.run_multi_params_and_return_results(params_dict, model_defining_params_pre,
-                                                                                 skip_sampler=True)
         print("Finish!")
 
     def test_run_multi_params_and_return_results(self):

@@ -637,7 +637,7 @@ class GibbsSampler() :
         return final
 
     @staticmethod
-    def build_n_steps_transitions_dicts(transition_dict, max_step=100):
+    def build_n_steps_transitions_dicts(transition_dict, max_step=25):
         _transition_dict = {k:{kk:vv for kk,vv in v.items() if kk not in ['start','end']} for
                             k,v in transition_dict.items() if k not in ['start','end']}
         _transition_matrix = pd.DataFrame(_transition_dict).fillna(0).sort_index(axis=1).sort_index(axis=0).T
@@ -765,12 +765,11 @@ class GibbsSampler() :
         prob_function = lambda n : n_steps_transitions[n][from_state][to_state]*(N_factor)*((1-N_factor)**(n-1))
 
         probs = np.array(list(map(prob_function,range(1,len(n_steps_transitions[1])))))
-        norm_probs = probs/probs.sum()
+        return Utils.robust_choice(list(range(1,len(probs) + 1 )), probs)
 
-        return np.random.choice(list(range(1,len(norm_probs) + 1 )),p = norm_probs)
 
     def nonignorable_sample_window(self, from_state,to_state,n_steps_transitions,N_factor) :
-        probs = self.fwd_sample_d(from_state,to_state, n_steps_transitions[1], N_factor, max_d=100)
+        probs = self.fwd_sample_d(from_state,to_state, n_steps_transitions[1], N_factor, max_d=25)
 
         ds= list(probs.keys())
         __sum_probs = np.sum(list(probs.values()))
@@ -782,10 +781,10 @@ class GibbsSampler() :
         #TODO: finish this function
         _N_factor = np.mean(list(N_factor.values())) if isinstance(N_factor,dict) else N_factor
         prob_function = lambda n: (_N_factor) * ((1 - _N_factor) ** (n - 1))
-        probs = np.array(list(map(prob_function, range(1, 100))))
-        norm_probs = probs / probs.sum()
+        probs = np.array(list(map(prob_function, range(1, 25))))
 
-        return np.random.choice(list(range(1, 100)), p=norm_probs)-1
+        return Utils.robust_choice(list(range(1, 25)),probs) - 1
+
 
     def _calculate_first_state_time(self,first_obs,n_steps_transitions,N_factor):
         #TODO: finish this function
@@ -801,7 +800,9 @@ class GibbsSampler() :
         probs_per_N = self._ignorable_calculate_first_state_time(first_obs,n_steps_transitions,_N_factor)
         if (sum(probs_per_N) == 0):
             return np.random.choice(list(n_steps_transitions.keys())) -1
-        return np.random.choice(list(n_steps_transitions.keys()), p=probs_per_N/probs_per_N.sum()) -1
+
+        return Utils.robust_choice(list(n_steps_transitions.keys()) , probs_per_N) - 1
+
 
     def _ignorable_calculate_first_state_time(self,first_obs,n_steps_transitions,N_factor):
         all_states = n_steps_transitions[1].keys()
@@ -1377,7 +1378,7 @@ class GibbsSampler() :
         return fwd
 
     @staticmethod
-    def fwd_sample_d(X_k, X_k1, trans_matrix, omitting_probs, max_d=100):
+    def fwd_sample_d(X_k, X_k1, trans_matrix, omitting_probs, max_d=25):
         """Forward algorithm."""
         states = list(trans_matrix.keys())
 
@@ -1415,7 +1416,7 @@ class GibbsSampler() :
         return prop_pd_per_d
 
     @staticmethod
-    def fwd_sample_first_d(X_k, start_prob, trans_matrix, omitting_probs, max_d=100):
+    def fwd_sample_first_d(X_k, start_prob, trans_matrix, omitting_probs, max_d=25):
         """Forward algorithm."""
 
         states = list(trans_matrix.keys())
@@ -1456,7 +1457,7 @@ class GibbsSampler() :
         return prop_pd_per_d
 
     @staticmethod
-    def fwd_sample_last_d(X_k1, trans_matrix, omitting_probs, max_d=100):
+    def fwd_sample_last_d(X_k1, trans_matrix, omitting_probs, max_d=25):
         """Forward algorithm."""
 
         states = list(trans_matrix.keys())

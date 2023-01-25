@@ -113,6 +113,7 @@ class GibbsExperiment() :
                     continue
 
             print("start simulate")
+            combined_params_for_cache = copy.copy(combined_params)
             combined_params = GibbsExperiment.update_non_ignorable_if_nedded(combined_params,
                                                                                       model_object)
             (all_relvent_observations, all_full_sampled_trajs, all_full_sampled_trajs_states,\
@@ -145,7 +146,7 @@ class GibbsExperiment() :
 
             all_results_of_model[exp_idx] = _result
 
-            GibbsExperiment.save_to_cache(_result,combined_params)
+            GibbsExperiment.save_to_cache(_result,combined_params_for_cache)
 
         return all_results_of_model
 
@@ -347,13 +348,13 @@ class GibbsExperiment() :
 
         relevent_sampling_method = GibbsExperiment.__sampling_method_from_params(params, use_pomegranate,is_known_W,
                                                                                  is_numerical_reconstruction,is_pc_guess)
-        # print(relevent_sampling_method)
+        print(relevent_sampling_method)
 
         is_assume_non_ignorable,is_learn_missings,\
             p_prob_of_observation,omitting_probs = GibbsExperiment._eval_nonig_parmas(params['p_prob_of_observation'],
                                                                           params['assume_nonignorable'],
                                                                           params['learn_missing_pc'])
-        print(f"{relevent_sampling_method} ; {(is_assume_non_ignorable, is_learn_missings, p_prob_of_observation, omitting_probs)}")
+        # print(f"{relevent_sampling_method} ; {(is_assume_non_ignorable, is_learn_missings, p_prob_of_observation, omitting_probs)}")
 
         if relevent_sampling_method == "pomegranate" :
             _transitions = sampler.reconstruction_using_pomegranate(all_relvent_observations,
